@@ -1,9 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <intrin.h>
-
-#define ENCRYPT(X) (_rotr64(X ^ 0x812348912894ull, 4))
-#define DECRYPT(X) (_rotl64(X, 4) ^ 0x812348912894ull)
+#include "bc_gen.h"
 
 namespace bc
 {
@@ -16,12 +14,18 @@ namespace bc
 	public:
 		__forceinline void set(T val)
 		{
-			this->obfuscated = ENCRYPT((uint64_t)val);
+			uint64_t obf;
+			ENCRYPT(obf, (uint64_t)val);
+			this->obfuscated = obf;
+			//this->obfuscated = ENCRYPT((uint64_t)val);
 		}
 
 		__forceinline T get()
 		{
-			return (T)DECRYPT(obfuscated);
+			uint64_t deob;
+			DECRYPT(deob, obfuscated);
+			return (T)deob;
+			//return (T)DECRYPT(obfuscated);
 		}
 
 		__forceinline obfuscated_prim64(T val)
