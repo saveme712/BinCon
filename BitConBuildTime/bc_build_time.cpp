@@ -111,12 +111,13 @@ void add_random(std::vector<obfuscation_pass>& passes)
     case obfuscation_type::m_inverse:
     {
         auto v = ((uint64_t)rand() % 65535);
+        auto mod = 0xfff00000 + ((rand() % 10) * 0x10000);
         do
         {
             v = ((uint64_t)rand() % 65535);
-        } while (!mul_inv(v, 0xffff0000ull));
+        } while (!mul_inv(v, mod));
 
-        passes.push_back(obfuscation_pass(type, v, 0xffff0000ull));
+        passes.push_back(obfuscation_pass(type, v, mod));
         break;
     }
     }
