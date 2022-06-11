@@ -18,27 +18,35 @@ static bc::memory_allocation* sec_allocation;
 static std::vector<bc::memory_allocation*> allocations;
 static bc::memory_allocator allocator(4096);
 
+bc::memory_allocation* new_alloc(size_t bytes)
+{
+	auto alloc = new bc::memory_allocation();
+	allocator.alloc_int(alloc, bytes);
+	allocations.push_back(alloc);
+	return alloc;
+}
+
 void fill_allocator_rnd()
 {
 	auto alloc_count = (20 + (std::rand() % 50));
 	for (int i = 0; i < alloc_count; i++)
 	{
-		auto alloc = new bc::memory_allocation();
-		allocator.alloc_int(alloc, 1 + std::rand() % 0x1200);
-		allocations.push_back(alloc);
+		new_alloc(1 + (std::rand() % 0x1200));
 	}
+}
+
+void init_secret()
+{
+	sec_allocation = new_alloc(sizeof(secret));
+	sec_allocation->cast<secret>()->health = 100;
+	sec_allocation->cast<secret>()->start_time = GetTickCount64();
 }
 
 int main()
 {
 	std::srand(std::time(0));
 	fill_allocator_rnd();
-
-	sec_allocation = new bc::memory_allocation();
-	allocator.alloc_int(sec_allocation, sizeof(secret));
-	allocations.push_back(sec_allocation);
-	sec_allocation->cast<secret>()->health = 100;
-	sec_allocation->cast<secret>()->start_time = GetTickCount64();
+	init_secret();
 
 	while (true)
 	{

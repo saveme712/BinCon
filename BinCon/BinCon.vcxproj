@@ -24,6 +24,7 @@
   <ItemGroup>
     <ClInclude Include="..\inc\bc_memory.h" />
     <ClInclude Include="..\inc\bc_var.h" />
+    <ClInclude Include="bc_common.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

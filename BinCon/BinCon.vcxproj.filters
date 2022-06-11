@@ -26,5 +26,8 @@
     <ClInclude Include="..\inc\bc_var.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="bc_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

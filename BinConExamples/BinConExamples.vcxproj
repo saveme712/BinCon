@@ -140,7 +140,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="BinConExamples.cpp" />
+    <ClCompile Include="bc_examples.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BinCon\BinCon.vcxproj">

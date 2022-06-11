@@ -3,22 +3,23 @@
 #include <vector>
 
 #include "bc_var.h"
+#include "bc_common.h"
 
 namespace bc
 {
 #define PAGE_SIZE_4KB 0x1000
 
-	enum class bc_error
-	{
-		success,
-		not_enough_memory
-	};
-
+	/// <summary>
+	/// A block of memory.
+	/// </summary>
 	struct memory_block
 	{
 		char data[PAGE_SIZE_4KB];
 	};
 
+	/// <summary>
+	/// A memory allocation.
+	/// </summary>
 	struct memory_allocation
 	{
 		obfuscated_prim64<size_t> id;
@@ -32,6 +33,9 @@ namespace bc
 		}
 	};
 
+	/// <summary>
+	/// A naive memory allocator, without any special optimizations.
+	/// </summary>
 	class memory_allocator
 	{
 	private:
@@ -46,9 +50,15 @@ namespace bc
 		memory_allocator(memory_allocator& other);
 
 	private:
+		/// <summary>
+		/// Finds a range of free memory.
+		/// </summary>
 		bc_error find_range(size_t num_blocks, memory_block** begin, size_t* block_index);
 
 	public:
+		/// <summary>
+		/// Allocates a range of memory.
+		/// </summary>
 		bc_error alloc_int(memory_allocation* allocation, size_t num_bytes);
 
 		/// <summary>
