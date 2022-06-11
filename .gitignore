@@ -12,3 +12,4 @@
 *.dll
 *.lib
 *.exp
+*.exe

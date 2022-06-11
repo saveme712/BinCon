@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="bc_tests.cpp">
+    <ClCompile Include="BinConExamples.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

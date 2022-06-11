@@ -1,7 +1,6 @@
-#include "pch.h"
 #include "CppUnitTest.h"
 
-#include "../BinCon/bc_memory.h"
+#include <bc_memory.h>
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
