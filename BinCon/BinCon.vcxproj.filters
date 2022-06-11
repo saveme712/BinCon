@@ -18,6 +18,9 @@
     <ClCompile Include="bc_memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="bc_windows.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\inc\bc_memory.h">
@@ -26,7 +29,10 @@
     <ClInclude Include="..\inc\bc_var.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="bc_common.h">
+    <ClInclude Include="..\inc\bc_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inc\bc_windows.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

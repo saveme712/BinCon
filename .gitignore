@@ -13,3 +13,6 @@
 *.lib
 *.exp
 *.exe
+inc/xorstr.hpp
+*.iobj
+*.ipdb

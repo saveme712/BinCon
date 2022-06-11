@@ -7,6 +7,8 @@
 
 #include <Windows.h>
 
+#include <xorstr.hpp>
+
 struct secret
 {
 	bc::obfuscated_prim64<uint64_t> health;
@@ -50,8 +52,8 @@ int main()
 
 	while (true)
 	{
-		std::cout << "Health: " << sec_allocation->cast<secret>()->health.get() << std::endl;
-		std::cout << "Start Time: " << sec_allocation->cast<secret>()->start_time.get() << std::endl;
+		std::cout << xorstr_("Health: ") << sec_allocation->cast<secret>()->health.get() << std::endl;
+		std::cout << xorstr_("Start Time: ") << sec_allocation->cast<secret>()->start_time.get() << std::endl;
 
 		allocator.reallocate(allocations);
 		std::this_thread::sleep_for(std::chrono::seconds(1));

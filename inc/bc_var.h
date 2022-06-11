@@ -35,6 +35,23 @@ namespace bc
 		}
 
 		__forceinline operator T() { return get(); }
+
+		__forceinline obfuscated_prim64<T> operator/(int val)
+		{
+			auto dec = get();
+			dec /= val;
+			set(dec);
+			return *this;
+		}
+
+		__forceinline obfuscated_prim64<T> operator*(int val)
+		{
+			auto dec = get();
+			dec *= val;
+			set(dec);
+			return *this;
+		}
+
 		__forceinline obfuscated_prim64<T> operator++(int val)
 		{
 			auto dec = get();
