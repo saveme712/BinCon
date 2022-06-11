@@ -17,7 +17,6 @@ namespace bc
 			uint64_t obf;
 			ENCRYPT(obf, (uint64_t)val);
 			this->obfuscated = obf;
-			//this->obfuscated = ENCRYPT((uint64_t)val);
 		}
 
 		__forceinline T get()
@@ -25,7 +24,6 @@ namespace bc
 			uint64_t deob;
 			DECRYPT(deob, obfuscated);
 			return (T)deob;
-			//return (T)DECRYPT(obfuscated);
 		}
 
 		__forceinline obfuscated_prim64(T val)

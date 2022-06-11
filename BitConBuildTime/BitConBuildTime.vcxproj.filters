@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BitConBuildTime.cpp">
+    <ClCompile Include="bc_build_time.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

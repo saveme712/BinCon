@@ -8,6 +8,7 @@ enum class obfuscation_type : int8_t
 {
     bswap = 0,
     xxor = 1,
+    m_inverse = 2,
     max
 };
 
@@ -25,16 +26,19 @@ struct obfuscation_pass
     }
 };
 
-static uint64_t bit_table[64];
-
-void gen_bit_table()
+uint64_t mul_inv(uint64_t n, uint64_t mod)
 {
-    uint64_t val = 0;
-    for (uint64_t i = 0; i < 64; i++)
-    {
-        val |= (1ull << i);
-        bit_table[i] = val;
+    uint64_t a = mod, b = a, c = 0, d = 0, e = 1, f, g;
+    for (n *= a > 1; n > 1 && (n *= a > 0); e = g, c = (c & 3) | (c & 1) << 2) {
+        g = d, d *= n / (f = a);
+        a = n % a, n = f;
+        c = (c & 6) | (c & 2) >> 1;
+        f = c > 1 && c < 6;
+        c = (c & 5) | (f || e > d ? (c & 4) >> 1 : ~c & 2);
+        d = f ? d + e : e > d ? e - d : d - e;
     }
+
+    return n ? c & 4 ? b - e : e : 0;
 }
 
 uint64_t build_bit_mask(int num_bits, int off)
@@ -75,6 +79,11 @@ void generate_bit_swap(std::ostringstream& o, int num_bits, int a, int b)
     o << "\tO |= __b << " << a << "ull; \\" << std::endl;
 }
 
+void generate_inverse(std::ostringstream& o, uint64_t v)
+{
+    o << "\t*((uint16_t*)&O) *= " << v << "; \\" << std::endl;
+}
+
 void generate_xor(std::ostringstream& o, uint64_t v)
 {
     o << "\tO ^= " << v << "; \\" << std::endl;
@@ -99,6 +108,17 @@ void add_random(std::vector<obfuscation_pass>& passes)
         passes.push_back(obfuscation_pass(type, v));
         break;
     }
+    case obfuscation_type::m_inverse:
+    {
+        auto v = ((uint64_t)rand() % 65535);
+        do
+        {
+            v = ((uint64_t)rand() % 65535);
+        } while (!mul_inv(v, 0xffff0000ull));
+
+        passes.push_back(obfuscation_pass(type, v, 0xffff0000ull));
+        break;
+    }
     }
 }
 
@@ -116,6 +136,9 @@ std::string generate_encrypt(std::vector<obfuscation_pass> passes)
             break;
         case obfuscation_type::xxor:
             generate_xor(ss, pass.args[0]);
+            break;
+        case obfuscation_type::m_inverse:
+            generate_inverse(ss, pass.args[0]);
             break;
         }
     }
@@ -140,6 +163,9 @@ std::string generate_decrypt(std::vector<obfuscation_pass> passes)
         case obfuscation_type::xxor:
             generate_xor(ss, pass.args[0]);
             break;
+        case obfuscation_type::m_inverse:
+            generate_inverse(ss, mul_inv(pass.args[0], pass.args[1]));
+            break;
         }
     }
     generate_footer(ss);
@@ -150,7 +176,6 @@ int main()
 {
     std::srand(std::time(0));
     srand(std::time(0));
-    gen_bit_table();
 
     std::vector<obfuscation_pass> passes;
     for (int i = 0; i < 4; i++)
