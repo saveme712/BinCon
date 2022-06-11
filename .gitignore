@@ -1,0 +1,14 @@
+
+
+*.obj
+*.recipe
+*.log
+*.lastbuildstate
+*.tlog
+*.ilk
+*.pdb
+*.pch
+*.idb
+*.dll
+*.lib
+*.exp
