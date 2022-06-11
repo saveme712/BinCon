@@ -41,28 +41,26 @@ namespace bc
 			auto dec = get();
 			dec /= val;
 			set(dec);
-			return *this;
+			return obfuscated_prim64<T>(dec);
 		}
 
 		__forceinline obfuscated_prim64<T> operator*(int val)
 		{
 			auto dec = get();
 			dec *= val;
-			set(dec);
-			return *this;
+			return obfuscated_prim64<T>(dec);
 		}
 
 		__forceinline obfuscated_prim64<T> operator++(int val)
 		{
 			auto dec = get();
 			dec += val;
-			set(dec);
-			return *this;
+			return obfuscated_prim64<T>(dec);
 		}
 
 		__forceinline obfuscated_prim64<T> operator++()
 		{
-			return *this + 1;
+			return obfuscated_prim64<T>(get()) + 1;
 		}
 	};
 }
