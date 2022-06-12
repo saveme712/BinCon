@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+#include <xorstr.hpp>
+
 namespace bc
 {
 	PVOID peb_walker::resolve_module(const wchar_t* name)
@@ -101,7 +103,7 @@ namespace bc
 						memset(export_function, 0, 64);
 						memcpy(export_function, whole + period + 1, strlen(whole) - period);
 
-						strcat_s(export_module, ".dll");
+						strcat_s(export_module, xorstr_(".dll"));
 
 						ascii_to_wide(export_module, export_module_wide);
 						_wcslwr_s(export_module_wide);
@@ -138,7 +140,7 @@ namespace bc
 		static FnNtQueryInformationProcess NtQueryInformationProcess = NULL;
 		if (!NtQueryInformationProcess)
 		{
-			NtQueryInformationProcess = (FnNtQueryInformationProcess)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess");
+			NtQueryInformationProcess = (FnNtQueryInformationProcess)GetProcAddress(GetModuleHandleA(xorstr_("ntdll.dll")), xorstr_("NtQueryInformationProcess"));
 		}
 
 		RE_PROCESS_BASIC_INFORMATION info;

@@ -54,6 +54,13 @@ namespace bc
 	public:
 		static peb_walker query();
 		static peb_walker tib();
+
+	public:
+		template<typename FN>
+		__forceinline static FN func(const wchar_t* mod, const char* func)
+		{
+			return (FN)tib().resolve_function(mod, func);
+		}
 	};
 
 }

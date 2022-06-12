@@ -28,10 +28,12 @@ namespace bc
 		}
 		checksum_DbgUiRemoteBreakin = crc32(rnd_gen, 15);
 
+		auto wrapper_VirtualProtect = peb_walker::func<decltype(VirtualProtect)*>(xorstr_(L"Kernel32.dll"), xorstr_("VirtualProtect"));
+
 		DWORD old_protect;
-		VirtualProtect(addr_DbgUiRemoteBreakin.get(), 15, PAGE_EXECUTE_READWRITE, &old_protect);
+		wrapper_VirtualProtect(addr_DbgUiRemoteBreakin.get(), 15, PAGE_EXECUTE_READWRITE, &old_protect);
 		memcpy(addr_DbgUiRemoteBreakin.get(), rnd_gen, 15);
-		VirtualProtect(addr_DbgUiRemoteBreakin.get(), 15, old_protect, &old_protect);
+		wrapper_VirtualProtect(addr_DbgUiRemoteBreakin.get(), 15, old_protect, &old_protect);
 	}
 
 	/// <summary>
