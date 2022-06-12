@@ -19,12 +19,19 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bc_integrity.cpp" />
     <ClCompile Include="bc_memory.cpp" />
+    <ClCompile Include="bc_peb.cpp" />
+    <ClCompile Include="bc_util.cpp" />
     <ClCompile Include="bc_windows.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\inc\bc_common.h" />
+    <ClInclude Include="..\inc\bc_integrity.h" />
     <ClInclude Include="..\inc\bc_memory.h" />
+    <ClInclude Include="..\inc\bc_peb.h" />
+    <ClInclude Include="..\inc\bc_thirdparty.h" />
+    <ClInclude Include="..\inc\bc_undocumented.h" />
     <ClInclude Include="..\inc\bc_var.h" />
     <ClInclude Include="..\inc\bc_windows.h" />
   </ItemGroup>

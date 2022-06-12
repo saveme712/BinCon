@@ -79,9 +79,10 @@ void generate_bit_swap(std::ostringstream& o, int num_bits, int a, int b)
     o << "\tO |= __b << " << a << "ull; \\" << std::endl;
 }
 
-void generate_inverse(std::ostringstream& o, uint64_t v)
+void generate_inverse(std::ostringstream& o, uint64_t v1, uint64_t v2)
 {
-    o << "\t*((uint16_t*)&O) *= " << v << "; \\" << std::endl;
+    o << "\t*((uint16_t*)&O) *= " << v1 << "; \\" << std::endl;
+    o << "\t*((uint16_t*)&O + 1) *= " << v2 << "; \\" << std::endl;
 }
 
 void generate_xor(std::ostringstream& o, uint64_t v)
@@ -110,14 +111,21 @@ void add_random(std::vector<obfuscation_pass>& passes)
     }
     case obfuscation_type::m_inverse:
     {
-        auto v = ((uint64_t)rand() % 65535);
+        auto v1 = ((uint64_t)rand() % 65535);
+        auto v2 = ((uint64_t)rand() % 65535);
         auto mod = 0xfff00000 + ((rand() % 10) * 0x10000);
+
         do
         {
-            v = ((uint64_t)rand() % 65535);
-        } while (!mul_inv(v, mod));
+            v1 = ((uint64_t)rand() % 65535);
+        } while (!mul_inv(v1, mod));
 
-        passes.push_back(obfuscation_pass(type, v, mod));
+        do
+        {
+            v2 = ((uint64_t)rand() % 65535);
+        } while (!mul_inv(v2, mod));
+
+        passes.push_back(obfuscation_pass(type, v2, mod, v1));
         break;
     }
     }
@@ -139,7 +147,7 @@ std::string generate_encrypt(std::vector<obfuscation_pass> passes)
             generate_xor(ss, pass.args[0]);
             break;
         case obfuscation_type::m_inverse:
-            generate_inverse(ss, pass.args[0]);
+            generate_inverse(ss, pass.args[2], pass.args[0]);
             break;
         }
     }
@@ -165,7 +173,7 @@ std::string generate_decrypt(std::vector<obfuscation_pass> passes)
             generate_xor(ss, pass.args[0]);
             break;
         case obfuscation_type::m_inverse:
-            generate_inverse(ss, mul_inv(pass.args[0], pass.args[1]));
+            generate_inverse(ss, mul_inv(pass.args[2], pass.args[1]), mul_inv(pass.args[0], pass.args[1]));
             break;
         }
     }

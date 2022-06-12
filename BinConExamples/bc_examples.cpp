@@ -1,6 +1,8 @@
 #include <bc_memory.h>
 #include <bc_var.h>
 #include <bc_windows.h>
+#include <bc_thirdparty.h>
+#include <bc_integrity.h>
 
 #include <iostream>
 #include <thread>
@@ -61,8 +63,11 @@ void init_secret()
 
 int main()
 {
+	BEGIN_VM(__FUNCTION__);
+
 	std::srand(std::time(0));
-	install_anti_debug();
+	bc::init_crc32_table();
+	bc::install_anti_debug();
 	fill_allocator_rnd();
 	init_secret();
 
@@ -72,6 +77,14 @@ int main()
 		std::cout << "Start Time: " << sec_allocation->cast<secret>()->start_time.get() << std::endl;
 
 		allocator.reallocate(allocations);
+		bc::verify_anti_debug([](auto err)
+		{
+			std::cout << "Anti debug verification failed!" << std::endl;
+			bc::hang_system();
+		});
+
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
+
+	END_VM(__FUNCTION__);
 }
