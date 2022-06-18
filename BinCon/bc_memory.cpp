@@ -13,6 +13,7 @@
 
 namespace bc
 {
+
 	memory_allocator::memory_allocator(size_t num_blocks)
 	{
 		blocks = (memory_block*)malloc(sizeof(memory_block) * num_blocks);

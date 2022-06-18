@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <fstream>
 
+#include <random>
+
 enum class obfuscation_type : int8_t
 {
     bswap = 0,
@@ -23,6 +25,23 @@ struct obfuscation_pass
         args[0] = arg_a;
         args[1] = arg_b;
         args[2] = arg_c;
+    }
+};
+
+struct struct_field
+{
+    const char* type;
+    const char* name;
+
+    struct_field(const char* type, const char* name)
+    {
+        this->type = type;
+        this->name = name;
+    }
+    struct_field(const char* name)
+    {
+        this->type = "";
+        this->name = name;
     }
 };
 
@@ -181,6 +200,44 @@ std::string generate_decrypt(std::vector<obfuscation_pass> passes)
     return ss.str();
 }
 
+std::string generate_struct(const char* struct_name, std::vector<struct_field> fields)
+{
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::shuffle(fields.begin(), fields.end(), rng);
+
+    auto pad_index = 0;
+    std::ostringstream ss;
+    ss << "\tstruct " << struct_name << std::endl;
+    ss << "\t{" << std::endl;
+    for (auto& field : fields)
+    {
+        ss << "\t\tchar padding_" << pad_index++ << "[" << ((rand() % 100) + 1) << "];" << std::endl;
+        ss << "\t\t" << field.type << " " << field.name << ";" << std::endl;
+    }
+    ss << "\t};" << std::endl << std::endl;
+    return ss.str();
+}
+
+std::string generate_enum(const char* struct_name, std::vector<struct_field> fields)
+{
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::shuffle(fields.begin(), fields.end(), rng);
+
+    auto pad_index = 0;
+    std::ostringstream ss;
+    ss << "\tenum class " << struct_name << std::endl;
+    ss << "\t{" << std::endl;
+    for (auto& field : fields)
+    {
+        ss << "\t\t" << field.name << "," << std::endl;
+    }
+    ss << "\t};" << std::endl << std::endl;
+    return ss.str();
+}
+
+
 int main()
 {
     std::srand(std::time(0));
@@ -195,9 +252,56 @@ int main()
     std::cout << generate_encrypt(passes);
     std::cout << generate_decrypt(passes);
 
-    std::ofstream of("bc_gen.h", std::ios::out);
-    of << "#pragma once\n" << std::endl;
-    of << generate_encrypt(passes) << std::endl;
-    of << generate_decrypt(passes) << std::endl;
-    of.close();
+    std::ofstream gen_of("bc_gen.h", std::ios::out);
+    gen_of << "#pragma once" << std::endl;
+    gen_of << generate_encrypt(passes) << std::endl;
+    gen_of << generate_decrypt(passes) << std::endl;
+    gen_of.close();
+
+    std::ofstream gens_of("bc_gen_struct.h", std::ios::out);
+    gens_of << "#pragma once" << std::endl;
+    gens_of << "#include \"bc_var.h\"" << std::endl << std::endl;
+    gens_of << "namespace bc" << std::endl;
+    gens_of << "{" << std::endl;
+    gens_of << "#pragma pack(push, 1)" << std::endl;
+
+    gens_of << generate_enum("packed_import_type", { { "name" }, { "ordinal"} });
+
+    gens_of << generate_struct("packed_import", {
+        {"obfuscated_prim64<packed_import_type>", "type"},
+        {"char", "mod[256]"},
+        {"char", "name[256]"},
+        {"obfuscated_prim64<uint32_t>", "ordinal"},
+        {"obfuscated_prim64<uint64_t>", "rva"}
+        });
+
+    gens_of << generate_struct("packed_section", {
+        {"obfuscated_prim64<uint64_t>", "rva"},
+        {"obfuscated_prim64<uint64_t>", "size_of_data"},
+        {"obfuscated_prim64<uint64_t>", "off_to_data"}
+        });
+
+    gens_of << generate_struct("packed_reloc", {
+        {"obfuscated_prim64<uint64_t>", "rva"}
+        });
+
+    gens_of << generate_struct("counted_element", {
+        {"obfuscated_prim64<uint64_t>", "num_elements"},
+        {"obfuscated_prim64<uint64_t>", "off"}
+        });
+
+    gens_of << generate_struct("packed_app", {
+        {"obfuscated_prim64<uint8_t>", "options"},
+        {"obfuscated_prim64<uint64_t>", "size_of_img"},
+        {"obfuscated_prim64<uint64_t>", "preferred_base"},
+        {"obfuscated_prim64<uint64_t>", "ep"},
+        {"counted_element", "off_to_relocs"},
+        {"counted_element", "off_to_iat"},
+        {"counted_element", "off_to_sections"}
+        });
+
+    gens_of << "}" << std::endl;
+    gens_of << "#pragma pop()" << std::endl;
+    gens_of.close();
+
 }

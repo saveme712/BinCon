@@ -7,6 +7,7 @@
 
 namespace bc
 {
+
 	PVOID peb_walker::resolve_module(const wchar_t* name)
 	{
 		wchar_t tmp_name[64];
@@ -38,13 +39,13 @@ namespace bc
 			return nullptr;
 		}
 
-		char tmp_func[64];
+		char tmp_func[256];
 		strcpy_s(tmp_func, function);
 		_strlwr_s(tmp_func);
 
-		char tmp_name[64];
+		char tmp_name[256];
 		char export_module[64];
-		char export_function[64];
+		char export_function[256];
 		wchar_t export_module_wide[64];
 
 		auto dos_header = (PIMAGE_DOS_HEADER)mod;
