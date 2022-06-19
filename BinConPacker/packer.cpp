@@ -174,6 +174,9 @@ namespace bc
 			auto section = allocator.append<void>(sect->SizeOfRawData);
 			memcpy(section, read.data() + sect->PointerToRawData, sect->SizeOfRawData);
 
+			obfuscated_byte_array ba(section, sect->SizeOfRawData);
+			ba.encrypt();
+
 			sections[i].off_to_data = allocator.off(section);
 		}
 
@@ -217,7 +220,7 @@ namespace bc
 					auto thunk = (PIMAGE_THUNK_DATA)((UINT64)read.data() + rva_to_fva(nt, fthunk));
 					while (thunk->u1.AddressOfData)
 					{
-						strcpy_s(imports[import_ptr].mod, module_name);
+						imports[import_ptr].mod = module_name;
 						imports[import_ptr].rva = fva_to_rva(nt, (uint64_t)&thunk->u1.Function - (uint64_t)read.data());
 						if (thunk->u1.Ordinal & IMAGE_ORDINAL_FLAG)
 						{
@@ -227,7 +230,7 @@ namespace bc
 						else
 						{
 							auto name = (PIMAGE_IMPORT_BY_NAME)(read.data() + rva_to_fva(nt, thunk->u1.AddressOfData));
-							strcpy_s(imports[import_ptr].name, name->Name);
+							imports[import_ptr].name = name->Name;
 							imports[import_ptr].type = packed_import_type::name;
 						}
 
@@ -248,6 +251,11 @@ namespace bc
 
 int main(int argc, char* argv[])
 {
+	bc::obfuscated_string<256> str("test");
+	
+	char real[256];
+	str.get(real);
+
     if (argc < 2)
     {
         std::cout << "Correct usage: BinConPacker app.exe" << std::endl;

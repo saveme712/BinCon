@@ -117,6 +117,9 @@ namespace bc
         auto img = (char*)VirtualAlloc(NULL, app->size_of_img, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
         for (auto i = 0; i < app->off_to_sections.num_elements; i++)
         {
+            obfuscated_byte_array ba((char*)begin + sections[i].off_to_data, sections[i].size_of_data);
+            ba.decrypt();
+
             memcpy(img + sections[i].rva, (char*)begin + sections[i].off_to_data, sections[i].size_of_data);
         }
 
@@ -125,7 +128,11 @@ namespace bc
             auto& import = imports[i];
 
             wchar_t module_name_wide[256];
-            ascii_to_wide(import.mod, module_name_wide);
+
+            char module_name[256];
+            import.mod.get(module_name);
+
+            ascii_to_wide(module_name, module_name_wide);
 
             auto llw = (decltype(LoadLibraryW)*)walker.resolve_function(xorstr_(L"Kernel32.dll"), xorstr_("LoadLibraryW"));
             auto gpa = (decltype(GetProcAddress)*)walker.resolve_function(xorstr_(L"Kernel32.dll"), xorstr_("GetProcAddress"));
@@ -135,14 +142,19 @@ namespace bc
             switch (import.type)
             {
             case packed_import_type::name:
-                resolved = (uint64_t)walker.resolve_function(module_name_wide, import.name);
+            {
+                char dec_name[256];
+                import.name.get(dec_name);
+
+                resolved = (uint64_t)walker.resolve_function(module_name_wide, dec_name);
                 if (!resolved)
                 {
-                    resolved = (uint64_t)gpa(module, import.name);
+                    resolved = (uint64_t)gpa(module, dec_name);
                 }
 
                 *((uint64_t*)(img + import.rva)) = resolved;
                 break;
+            }
             case packed_import_type::ordinal:
                 resolved = (uint64_t)gpa(module, MAKEINTRESOURCEA(import.ordinal.get()));
                 *((uint64_t*)(img + import.rva)) = resolved;
@@ -174,8 +186,11 @@ namespace bc
         auto rsc_size = SizeofResource(NULL, rsc);
         auto rsc_data = ::LoadResource(NULL, rsc);
         auto rsc_bin = ::LockResource(rsc_data);
-
-        auto app = (packed_app*)rsc_bin;
+        auto copy = malloc(rsc_size);
+        memcpy(copy, rsc_bin, rsc_size);
+        UnlockResource(rsc_data);
+        
+        auto app = (packed_app*)copy;
         if (has_option(app, packed_app_option::anti_debug))
         {
             install_anti_debug();

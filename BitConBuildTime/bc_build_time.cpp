@@ -269,8 +269,8 @@ int main()
 
     gens_of << generate_struct("packed_import", {
         {"obfuscated_prim64<packed_import_type>", "type"},
-        {"char", "mod[256]"},
-        {"char", "name[256]"},
+        {"obfuscated_string<256>", "mod"},
+        {"obfuscated_string<256>", "name"},
         {"obfuscated_prim64<uint32_t>", "ordinal"},
         {"obfuscated_prim64<uint64_t>", "rva"}
         });

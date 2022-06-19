@@ -5,6 +5,101 @@
 
 namespace bc
 {
+	class obfuscated_byte_array
+	{
+	private:
+		char* data;
+		size_t data_len;
+
+	public:
+		__forceinline obfuscated_byte_array(void* data, size_t data_len)
+		{
+			this->data = (char*)data;
+			this->data_len = data_len;
+		}
+
+	public:
+		__forceinline void encrypt()
+		{
+			uint64_t t1;
+			uint64_t t2;
+
+			for (auto i = 0; i < data_len / sizeof(uint64_t); i++)
+			{
+				t1 = *((uint64_t*)(data + (i * sizeof(uint64_t))));
+				ENCRYPT(t2, t1);
+
+				*((uint64_t*)(data + (i * sizeof(uint64_t)))) = t2;
+			}
+		}
+
+		__forceinline void decrypt()
+		{
+			uint64_t t1;
+			uint64_t t2;
+
+			for (auto i = 0; i < data_len / sizeof(uint64_t); i++)
+			{
+				t1 = *((uint64_t*)(data + (i * sizeof(uint64_t))));
+				DECRYPT(t2, t1);
+
+				*((uint64_t*)(data + (i * sizeof(uint64_t)))) = t2;
+			}
+		}
+	};
+
+	template <uint64_t S>
+	class obfuscated_string
+	{
+	private:
+		char obfuscated[S];
+
+	public:
+		__forceinline void set(const char* input)
+		{
+			uint64_t t1;
+			uint64_t t2;
+
+			char whole[S];
+			memset(whole, 0, S);
+
+			strcpy_s(whole, input);
+			for (auto i = 0; i < S / sizeof(uint64_t); i++)
+			{
+				t1 = *((uint64_t*)(whole + (i * sizeof(uint64_t))));
+				ENCRYPT(t2, t1);
+
+				memcpy(obfuscated + (i * sizeof(uint64_t)), &t2, sizeof(t2));
+			}
+		}
+
+		__forceinline void get(char* output)
+		{
+			uint64_t t1;
+			uint64_t t2;
+
+			char whole[S];
+			memset(whole, 0, S);
+
+			bool has_null = false;
+			for (auto i = 0; i < S / sizeof(uint64_t) && !has_null; i++)
+			{
+				t1 = *((uint64_t*)(obfuscated + (i * sizeof(uint64_t))));
+				DECRYPT(t2, t1);
+
+				memcpy(whole + (i * sizeof(uint64_t)), &t2, sizeof(t2));
+			}
+
+			strcpy_s(output, S, whole);
+		}
+
+	public:
+		__forceinline obfuscated_string(const char* c)
+		{
+			set(c);
+		}
+	};
+
 	template <typename T>
 	class obfuscated_prim64
 	{
