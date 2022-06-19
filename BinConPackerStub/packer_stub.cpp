@@ -19,7 +19,7 @@ namespace bc
     typedef int (*fn_main)(int argc, const char* argv[]);
     typedef void(*fn_main_chal)(chal_entry* ce);
 
-    void bind_crt_handles_to_std_handles()
+    __forceinline void bind_crt_handles_to_std_handles()
     {
         FILE* df_1;
         freopen_s(&df_1, "nul", "r", stdin);
@@ -170,8 +170,12 @@ namespace bc
     {
         BEGIN_VM(__FUNCTION__);
 
-        auto read = read_file("packed.dat");
-        auto app = (packed_app*)read.data();
+        auto rsc = FindResource(NULL, xorstr_(L"p"), RT_RCDATA);
+        auto rsc_size = SizeofResource(NULL, rsc);
+        auto rsc_data = ::LoadResource(NULL, rsc);
+        auto rsc_bin = ::LockResource(rsc_data);
+
+        auto app = (packed_app*)rsc_bin;
         if (has_option(app, packed_app_option::anti_debug))
         {
             install_anti_debug();
@@ -192,7 +196,7 @@ namespace bc
         if (has_option(app, packed_app_option::chal_entry))
         {
             auto entry = gen_chal_entry();
-            ((fn_main_chal)(read.data() + app->ep))(&entry);
+            ((fn_main_chal)((uint64_t)mapped + app->ep))(&entry);
         }
         else
         {

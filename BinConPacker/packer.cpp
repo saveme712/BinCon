@@ -238,9 +238,11 @@ namespace bc
 			}
 		}
 
-		std::ofstream out("packed.dat", std::ios_base::binary);
-		out.write((char*)allocator.img, allocator.cur_size);
-		out.close();
+		auto rsc = BeginUpdateResource(L"BinConPackerStub.exe", TRUE);
+		if (UpdateResource(rsc, RT_RCDATA, L"p", MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), (char*)allocator.img, allocator.cur_size))
+		{
+			EndUpdateResource(rsc, FALSE);
+		}
     }
 }
 
