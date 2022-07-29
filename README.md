@@ -13,3 +13,6 @@ The expression used to obfuscate variables will be randomized before a build is 
 
 ## Memory Allocator
 A (somewhat poorly made) memory allocator that supports randomizing the allocated blocks.
+
+## Encrypted Sections
+Keep your code sections encrypted and unavailable in memory until they're accessed, with periodic re-encryption.

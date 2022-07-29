@@ -23,7 +23,37 @@ namespace bc
     static packed_app* app = nullptr;
     static char* img;
 
-    static LONG exception_handler(_EXCEPTION_POINTERS* exception_info)
+    /// <summary>
+    /// Re-encrypts all code sections.
+    /// </summary>
+    static void re_encrypt_code()
+    {
+        auto sections = (packed_section*)(img + app->off_to_sections.off);
+        auto walker = peb_walker::tib();
+
+        for (auto i = 0; i < app->off_to_sections.num_elements; i++)
+        {
+            uint64_t characteristics = sections[i].characteristics;
+            if (characteristics & (uint64_t)packed_section_characteristic::can_lazy_load)
+            {
+                VirtualFree(img + sections[i].rva, sections[i].size_of_data, MEM_DECOMMIT);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A thread while re-encrypts code periodically.
+    /// </summary>
+    static void re_encrypt_code_thread()
+    {
+        while (TRUE)
+        {
+            re_encrypt_code();
+            Sleep(1000);
+        }
+    }
+
+    static LONG decrypt_code_except_handler(_EXCEPTION_POINTERS* exception_info)
     {
         auto rip = exception_info->ContextRecord->Rip;
         auto iimg = (uint64_t)img;
@@ -194,8 +224,6 @@ namespace bc
             if (characteristics & (uint64_t)packed_section_characteristic::can_lazy_load)
             {
                 VirtualFree(img + sections[i].rva, sections[i].size_of_data, MEM_DECOMMIT);
-                //DWORD old_protect;
-                //VirtualProtect(img + sections[i].rva, sections[i].size_of_data, PAGE_NOACCESS, &old_protect);
             }
             else
             {
@@ -205,7 +233,6 @@ namespace bc
                 memcpy(img + sections[i].rva, (char*)begin + sections[i].off_to_data, sections[i].size_of_data);
                 ba.encrypt();
             }
-
         }
 
         for (auto i = 0; i < app->off_to_iat.num_elements; i++)
@@ -278,7 +305,7 @@ namespace bc
         app = (packed_app*)copy;
         if (has_option(app, packed_app_option::lazy_load_code))
         {
-            AddVectoredExceptionHandler(TRUE, exception_handler);
+            AddVectoredExceptionHandler(TRUE, decrypt_code_except_handler);
         }
 
         if (has_option(app, packed_app_option::anti_debug))
@@ -296,11 +323,12 @@ namespace bc
             }
         }
 
+        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)re_encrypt_code_thread, NULL, 0, NULL);
+
 #ifdef DEBUG_LOGGING
         std::cout << "Mapping" << std::endl;
         std::cin.get();
 #endif
-
         auto mapped = map();
 
 #ifdef DEBUG_LOGGING
@@ -310,6 +338,8 @@ namespace bc
         if (has_option(app, packed_app_option::chal_entry))
         {
             auto entry = gen_chal_entry();
+            entry.re_encrypt_code = re_encrypt_code;
+
             ((fn_main_chal)((uint64_t)mapped + app->ep))(&entry);
         }
         else
