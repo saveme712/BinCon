@@ -16,9 +16,14 @@ namespace bc
 	{
 		chal_entry = (1 << 0),
 		console = (1 << 1),
-		anti_debug = (1 << 2)
+		anti_debug = (1 << 2),
+		lazy_load_code = (1 << 3)
 	};
 
+	enum class packed_section_characteristic : uint64_t
+	{
+		can_lazy_load = (1 << 0)
+	};
 
 	__forceinline bool has_option(packed_app* app, packed_app_option option)
 	{

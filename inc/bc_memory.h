@@ -8,6 +8,7 @@
 namespace bc
 {
 #define PAGE_SIZE_4KB 0x1000
+#define PAGE_ADDR(X) (X & ~(PAGE_SIZE_4KB - 1))
 
 	/// <summary>
 	/// A block of memory.

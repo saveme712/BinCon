@@ -147,9 +147,8 @@ namespace bc
 		auto imports = allocator.append<packed_import>(import_count * sizeof(packed_import));
 		auto relocs = allocator.append<packed_reloc>(reloc_count * sizeof(packed_reloc));
 
-		std::cout << "huh? " << (uint64_t)app->options.get() << std::endl;
 		app->options |= (uint8_t)packed_app_option::console;
-		std::cout << "huh? " << (uint64_t)app->options.get() << std::endl;
+		app->options |= (uint8_t)packed_app_option::lazy_load_code;
 
 		app->ep = nt->OptionalHeader.AddressOfEntryPoint;
 		app->size_of_img = nt->OptionalHeader.SizeOfImage;
@@ -178,6 +177,13 @@ namespace bc
 			ba.encrypt();
 
 			sections[i].off_to_data = allocator.off(section);
+			sections[i].characteristics = 0;
+
+			if (sect->Characteristics & (IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_CNT_CODE))
+			{
+				sections[i].characteristics |= (uint64_t)packed_section_characteristic::can_lazy_load;
+			}
+
 		}
 
 		std::cout << "[info] building relocations" << std::endl;

@@ -278,7 +278,8 @@ int main()
     gens_of << generate_struct("packed_section", {
         {"obfuscated_prim64<uint64_t>", "rva"},
         {"obfuscated_prim64<uint64_t>", "size_of_data"},
-        {"obfuscated_prim64<uint64_t>", "off_to_data"}
+        {"obfuscated_prim64<uint64_t>", "off_to_data"},
+        {"obfuscated_prim64<uint64_t>", "characteristics"}
         });
 
     gens_of << generate_struct("packed_reloc", {

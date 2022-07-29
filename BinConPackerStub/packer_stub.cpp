@@ -10,6 +10,7 @@
 #include <bc_util.h>
 #include <bc_thirdparty.h>
 #include <bc_integrity.h>
+#include <bc_memory.h>
 #include <bc_windows.h>
 
 #include <xorstr.hpp>
@@ -18,6 +19,78 @@ namespace bc
 {
     typedef int (*fn_main)(int argc, const char* argv[]);
     typedef void(*fn_main_chal)(chal_entry* ce);
+
+    static packed_app* app = nullptr;
+    static char* img;
+
+    static LONG exception_handler(_EXCEPTION_POINTERS* exception_info)
+    {
+        auto rip = exception_info->ContextRecord->Rip;
+        auto iimg = (uint64_t)img;
+        auto begin = (uint64_t)app;
+        auto sections = (packed_section*)(begin + app->off_to_sections.off);
+
+        if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+            exception_info->ExceptionRecord->ExceptionInformation[0] == 0x8)
+        {
+#ifdef DEBUG_LOGGING
+            std::cout << "[exception]" << std::endl;
+            std::cout
+                << "Reason: " << std::hex << exception_info->ExceptionRecord->ExceptionCode
+                << ", Addr: " << std::hex << exception_info->ExceptionRecord->ExceptionAddress
+                << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[0]
+                << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[1]
+                << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[2]
+                << std::endl;
+
+            std::cout
+                << "Rip: " << std::hex << rip
+                << ", Img: " << std::hex << iimg << std::endl;
+#endif
+
+            auto exception_page = exception_info->ExceptionRecord->ExceptionInformation[1];
+            for (auto i = 0; i < app->off_to_sections.num_elements; i++)
+            {
+                uint64_t characteristics = sections[i].characteristics;
+#ifdef DEBUG_LOGGING
+                std::cout << "[section_search]" << std::endl;
+                std::cout
+                    << "Off: " << std::hex << sections[i].rva.get()
+                    << ", Size: " << std::hex << sections[i].size_of_data.get()
+                    << ", Char: " << std::hex << characteristics
+                    << std::endl;
+#endif
+
+                if (exception_page >= (iimg + sections[i].rva) &&
+                    exception_page < ((iimg + sections[i].rva + sections[i].size_of_data)))
+                {
+                    if (characteristics & (uint64_t)packed_section_characteristic::can_lazy_load)
+                    {
+                        // this is the aligned offset into the section
+                        auto page_offset = PAGE_ADDR(exception_page) - (iimg + sections[i].rva);
+#ifdef DEBUG_LOGGING
+                        std::cout << "[found]" << std::endl;
+                        std::cout
+                            << "Rip: " << std::hex << exception_page
+                            << ", Off: " << std::hex << page_offset
+                            << std::endl;
+#endif
+
+                        DWORD old_protect;
+                        VirtualAlloc(img + sections[i].rva + page_offset, PAGE_SIZE_4KB, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+
+                        memcpy(img + sections[i].rva + page_offset, (char*)begin + sections[i].off_to_data + page_offset, PAGE_SIZE_4KB);
+                        obfuscated_byte_array ba(img + sections[i].rva + page_offset, PAGE_SIZE_4KB);
+                        ba.decrypt();
+
+                        return EXCEPTION_CONTINUE_EXECUTION;
+                    }
+                }
+            }
+        }
+
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
 
     __forceinline void bind_crt_handles_to_std_handles()
     {
@@ -106,7 +179,7 @@ namespace bc
         return std::vector<char>(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
     }
 
-    __forceinline void* map(packed_app* app)
+    __forceinline void* map()
     {
         auto begin = (uint64_t)app;
         auto sections = (packed_section*)(begin + app->off_to_sections.off);
@@ -114,13 +187,25 @@ namespace bc
         auto relocs = (packed_reloc*)(begin + app->off_to_relocs.off);
         auto walker = peb_walker::tib();
 
-        auto img = (char*)VirtualAlloc(NULL, app->size_of_img, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+        img = (char*)VirtualAlloc(NULL, app->size_of_img, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
         for (auto i = 0; i < app->off_to_sections.num_elements; i++)
         {
-            obfuscated_byte_array ba((char*)begin + sections[i].off_to_data, sections[i].size_of_data);
-            ba.decrypt();
+            uint64_t characteristics = sections[i].characteristics; 
+            if (characteristics & (uint64_t)packed_section_characteristic::can_lazy_load)
+            {
+                VirtualFree(img + sections[i].rva, sections[i].size_of_data, MEM_DECOMMIT);
+                //DWORD old_protect;
+                //VirtualProtect(img + sections[i].rva, sections[i].size_of_data, PAGE_NOACCESS, &old_protect);
+            }
+            else
+            {
+                obfuscated_byte_array ba((char*)begin + sections[i].off_to_data, sections[i].size_of_data);
+                ba.decrypt();
 
-            memcpy(img + sections[i].rva, (char*)begin + sections[i].off_to_data, sections[i].size_of_data);
+                memcpy(img + sections[i].rva, (char*)begin + sections[i].off_to_data, sections[i].size_of_data);
+                ba.encrypt();
+            }
+
         }
 
         for (auto i = 0; i < app->off_to_iat.num_elements; i++)
@@ -190,17 +275,20 @@ namespace bc
         memcpy(copy, rsc_bin, rsc_size);
         UnlockResource(rsc_data);
         
-        auto app = (packed_app*)copy;
+        app = (packed_app*)copy;
+        if (has_option(app, packed_app_option::lazy_load_code))
+        {
+            AddVectoredExceptionHandler(TRUE, exception_handler);
+        }
+
         if (has_option(app, packed_app_option::anti_debug))
         {
             install_anti_debug();
         }
 
-        auto mapped = map(app);
-        
         if (has_option(app, packed_app_option::console))
         {
-            if (AllocConsole()) 
+            if (AllocConsole())
             {
                 SetConsoleTitle(xorstr_(L"BinCon"));
                 SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_RED);
@@ -208,6 +296,17 @@ namespace bc
             }
         }
 
+#ifdef DEBUG_LOGGING
+        std::cout << "Mapping" << std::endl;
+        std::cin.get();
+#endif
+
+        auto mapped = map();
+
+#ifdef DEBUG_LOGGING
+        std::cout << "Calling main @ " << std::hex << ((uint64_t)mapped + app->ep) << std::endl;
+        std::cin.get();
+#endif
         if (has_option(app, packed_app_option::chal_entry))
         {
             auto entry = gen_chal_entry();
