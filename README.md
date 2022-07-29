@@ -12,7 +12,7 @@ Support for transparent obfuscation of native data types, including pointers, an
 The expression used to obfuscate variables will be randomized before a build is started.
 
 ## Memory Allocator
-A (somewhat poorly made) memory allocator that supports randomizing the allocated blocks.
+A very poorly made memory allocator that supports randomizing the allocated blocks. Will be redone soon TM.
 
 ## Encrypted Sections
 Keep your code sections encrypted and unavailable in memory until they're accessed, with periodic re-encryption.
