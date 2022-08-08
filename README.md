@@ -32,7 +32,8 @@ struct packed_import
 };
 ```
 
-All projects share the same generated files, which can be leveraged for communication from app <-> packer. The packer has a provided communication channel with a hook on `GetProcAddress`.
+All projects share the same generated files, which can be leveraged for communication from app <-> packer. The packer has a provided communication channel with a hook on `GetProcAddress`. This will
+allow you to talk to the packer stub, and request integrity checks, memory re-encryption, pointer encryption, etc.
 
 ```C++
 (chal_entry*)GetProcAddress((HMODULE)0xBC, xorstr_("pack_interface"))
