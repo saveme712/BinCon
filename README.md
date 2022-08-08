@@ -39,6 +39,50 @@ allow you to talk to the packer stub, and request integrity checks, memory re-en
 (chal_entry*)GetProcAddress((HMODULE)0xBC, xorstr_("pack_interface"))
 ```
 
+The generated expressions use a mix of XOR, byte swap, and multiplicative inverse obfuscation generated in randomized order.
+
+```C++
+#define ENCRYPT(O, X) O = X; \
+{  \
+	uint64_t __a; \
+	uint64_t __b; \
+	O ^= 136292197216505; \
+	O ^= 130747394438946; \
+	__a = (O & 33538048) >> 14ull; \
+	__b = (O & 72022409665839104) >> 45ull; \
+	O &= ~33538048; \
+	O &= ~72022409665839104; \
+	O |= __a << 45ull; \
+	O |= __b << 14ull; \
+	__a = (O & 268435454) >> 1ull; \
+	__b = (O & 2305842992033824768) >> 34ull; \
+	O &= ~268435454; \
+	O &= ~2305842992033824768; \
+	O |= __a << 34ull; \
+	O |= __b << 1ull; \
+}
+
+#define DECRYPT(O, X) O = X; \
+{  \
+	uint64_t __a; \
+	uint64_t __b; \
+	__a = (O & 268435454) >> 1ull; \
+	__b = (O & 2305842992033824768) >> 34ull; \
+	O &= ~268435454; \
+	O &= ~2305842992033824768; \
+	O |= __a << 34ull; \
+	O |= __b << 1ull; \
+	__a = (O & 33538048) >> 14ull; \
+	__b = (O & 72022409665839104) >> 45ull; \
+	O &= ~33538048; \
+	O &= ~72022409665839104; \
+	O |= __a << 45ull; \
+	O |= __b << 14ull; \
+	O ^= 130747394438946; \
+	O ^= 136292197216505; \
+}
+```
+
 ## Encrypted Sections
 Keep your code sections encrypted and unavailable in memory until they're accessed, with periodic re-encryption.
 
