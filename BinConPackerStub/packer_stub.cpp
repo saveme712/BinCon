@@ -137,26 +137,7 @@ namespace bc
             {
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
-
-            std::cout << "..." << std::endl;
-            std::cin.get();
         }
-
-#ifdef DEBUG_LOGGING
-        std::cout << "[unhandled exception]" << std::endl;
-        std::cout
-            << "Reason: " << std::hex << exception_info->ExceptionRecord->ExceptionCode
-            << ", Addr: " << std::hex << exception_info->ExceptionRecord->ExceptionAddress
-            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[0]
-            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[1]
-            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[2]
-            << std::endl;
-
-        while (TRUE)
-        {
-            Sleep(1000);
-        }
-#endif
 
         return EXCEPTION_CONTINUE_SEARCH;
     }
