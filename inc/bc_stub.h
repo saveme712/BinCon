@@ -14,7 +14,8 @@ namespace bc
 #pragma pack(push, 1)
 	typedef void (*fn_verify_anti_debug)(fn_integrity_check_failed on_failure);
 	typedef void (*fn_re_encrypt_code)();
-	typedef void* (*fn_encrypt_ptr)(void* ptr);
+	typedef void* (*fn_alloc_encrypted)(size_t amount);
+	typedef void* (*fn_free_encrypted)(uint64_t ptr);
 
 	enum class packed_app_option : uint8_t
 	{
@@ -39,7 +40,8 @@ namespace bc
 		obfuscated_prim64<uint64_t> run_tick;
 		obfuscated_prim64<fn_verify_anti_debug> verify_anti_debug;
 		obfuscated_prim64<fn_re_encrypt_code> re_encrypt_code;
-		obfuscated_prim64<fn_encrypt_ptr> encrypt_ptr;
+		obfuscated_prim64<fn_alloc_encrypted> alloc_enc;
+		obfuscated_prim64<fn_free_encrypted> free_enc;
 
 		union
 		{

@@ -17,16 +17,17 @@ struct secret
 {
 	bc::obfuscated_prim64<uint64_t> health;
 	bc::obfuscated_prim64<uint64_t> start_time;
+	bc::obfuscated_prim64<uint64_t> tick;
 };
 
 secret* emulated_secret = nullptr;
 
 void init_secret()
 {
-	emulated_secret = (secret*)bc::get_chal_entry()->encrypt_ptr(malloc(sizeof(secret)));
-	std::cout << "emulated_secret: " << emulated_secret << std::endl;
+	emulated_secret = (secret*)bc::get_chal_entry()->alloc_enc(sizeof(secret));
 	emulated_secret->health = 100;
 	emulated_secret->start_time = GetTickCount64();
+	emulated_secret->tick = 0;
 }
 
 int main()
@@ -35,15 +36,16 @@ int main()
 
 	std::srand(std::time(0));
 	init_secret();
+	std::cout << "Secret: " << std::hex << (uint64_t)emulated_secret << std::endl;
 
 	auto ce = bc::get_chal_entry();
-	//ce->re_encrypt_code
 	while (true)
 	{
-		std::cout << "Secret: " << std::hex << (uint64_t)emulated_secret << std::endl;
 		std::cout << "Health: " << emulated_secret->health.get() << std::endl;
 		std::cout << "Start Time: " << emulated_secret->start_time.get() << std::endl;
+		std::cout << "Tick: " << emulated_secret->tick.get() << std::endl;
 
+		emulated_secret->tick += 1;
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 

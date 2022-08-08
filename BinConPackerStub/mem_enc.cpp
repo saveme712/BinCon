@@ -20,27 +20,53 @@
 
 namespace bc
 {
-    static std::map<uint64_t, bool> encrypted_ptr_map;
-
-    /// <summary>
-    /// Decrypts a pointer.
-    /// </summary>
-    static __forceinline uint64_t decrypt_ptr(uint64_t ptr)
+    struct encrypted_ptr
     {
-        uint64_t dec;
-        DECRYPTM(dec, ptr);
-        return dec;
+        obfuscated_prim64<uint64_t> real;
+        obfuscated_prim64<size_t> size;
+
+        __forceinline encrypted_ptr(uint64_t real, size_t size)
+        {
+            this->real = real;
+            this->size = size;
+        }
+
+        __forceinline encrypted_ptr() : encrypted_ptr(0, 0)
+        {
+
+        }
+    };
+
+    static std::map<uint64_t, encrypted_ptr> encrypted_ptr_map;
+    static uint64_t alloc_base = 0xff00000000000000ull;
+
+    uint64_t allocate_encrypted(size_t size)
+    {
+        auto v = (uint64_t)malloc(size);
+        
+        auto enc_ptr = alloc_base; 
+        encrypted_ptr_map[enc_ptr] = encrypted_ptr(v, size);
+
+        alloc_base += size;
+        return enc_ptr;
     }
 
-    /// <summary>
-    /// Encrypts a pointer.
-    /// </summary>
-    uint64_t encrypt_ptr(uint64_t ptr)
+    void free_encrypted(uint64_t addr)
     {
-        uint64_t enc;
-        ENCRYPTM(enc, ptr);
-        encrypted_ptr_map[enc] = true;
-        return enc;
+        encrypted_ptr_map.erase(addr);
+    }
+
+    uint64_t find_encrypted(uint64_t fake_search)
+    {
+        for (auto& kv : encrypted_ptr_map)
+        {
+            auto fake_addr = kv.first;
+            auto real_addr = kv.second.real.get();
+            if (fake_search >= fake_addr && fake_search < (fake_addr + kv.second.size.get()))
+            {
+                return real_addr + (fake_search - fake_addr);
+            }
+        }
     }
 
     /// <summary>
@@ -134,59 +160,26 @@ namespace bc
 
         ZydisDecodedInstruction instruction;
         auto err = ZydisDecoderDecodeBuffer(&decoder, ins, 15, &instruction);
+        auto any = false;
         if (ZYAN_SUCCESS(err))
         {
-            uint64_t src;
-
-            if (instruction.mnemonic == ZydisMnemonic::ZYDIS_MNEMONIC_MOV)
+            for (auto i = 0; i < instruction.operand_count; i++)
             {
-                if (instruction.operands[0].type == ZydisOperandType::ZYDIS_OPERAND_TYPE_MEMORY)
+                auto& op = instruction.operands[i];
+                if (op.type == ZydisOperandType::ZYDIS_OPERAND_TYPE_MEMORY)
                 {
-                    auto base = instruction.operands[0].mem.base;
-                    auto base_r = retrieve_context(context, base);
-                    auto src_r = retrieve_context(context, instruction.operands[1].reg.value);
-
-                    auto off = 0ull;
-                    if (instruction.operands[0].mem.disp.has_displacement)
-                    {
-                        off += instruction.operands[0].mem.disp.value;
-                    }
-
-                    if (encrypted_ptr_map.find(base_r) != encrypted_ptr_map.end())
-                    {
-                        auto dec = decrypt_ptr(base_r) + off;
-                        memcpy((void*)dec, &src_r, instruction.operands[0].size / 8);
-
-                        context->Rip += instruction.length;
-                        return true;
-                    }
-                }
-                else if (instruction.operands[0].type == ZydisOperandType::ZYDIS_OPERAND_TYPE_REGISTER)
-                {
-                    auto base = instruction.operands[1].mem.base;
+                    auto base = op.mem.base;
                     auto base_r = retrieve_context(context, base);
 
-                    auto off = 0ull;
-                    if (instruction.operands[1].mem.disp.has_displacement)
+                    if (auto translated = find_encrypted(base_r))
                     {
-                        off += instruction.operands[1].mem.disp.value;
-                    }
-
-                    if (encrypted_ptr_map.find(base_r) != encrypted_ptr_map.end())
-                    {
-                        auto dec = decrypt_ptr(base_r) + off;
-                        auto read = 0ull;
-
-                        memcpy(&read, (void*)dec, instruction.operands[0].size / 8);
-                        update_context(context, instruction.operands[0].reg.value, read);
-
-                        context->Rip += instruction.length;
-                        return true;
+                        update_context(context, op.mem.base, translated);
+                        any = true;
                     }
                 }
             }
         }
 
-        return false;
+        return any;
     }
 }

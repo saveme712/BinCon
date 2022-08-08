@@ -29,7 +29,8 @@ namespace bc
     static chal_entry cur_chal_entry;
 
     // memory encryption imports
-    uint64_t encrypt_ptr(uint64_t ptr);
+    void free_encrypted(uint64_t addr);
+    uint64_t allocate_encrypted(size_t size);
     bool emulate_encrypted_ins(PCONTEXT context, void* ins);
 
     /// <summary>
@@ -62,80 +63,88 @@ namespace bc
         }
     }
 
-    static LONG decrypt_code_except_handler(_EXCEPTION_POINTERS* exception_info)
+    /// <summary>
+    /// Attempts to decrypt a section.
+    /// </summary>
+    static bool decrypt_section(uint64_t rip, uint64_t exception_page)
     {
-        auto rip = exception_info->ContextRecord->Rip;
         auto iimg = (uint64_t)img;
         auto begin = (uint64_t)app;
         auto sections = (packed_section*)(begin + app->off_to_sections.off);
 
-        if (
-            exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
-            exception_info->ExceptionRecord->ExceptionInformation[0] == 0x8)
+#ifdef DEBUG_LOGGING
+        std::cout << "[exception]" << std::endl;
+        std::cout
+            << "Reason: " << std::hex << exception_info->ExceptionRecord->ExceptionCode
+            << ", Addr: " << std::hex << exception_info->ExceptionRecord->ExceptionAddress
+            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[0]
+            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[1]
+            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[2]
+            << std::endl;
+
+        std::cout
+            << "Rip: " << std::hex << rip
+            << ", Img: " << std::hex << iimg << std::endl;
+#endif
+
+        for (auto i = 0; i < app->off_to_sections.num_elements; i++)
         {
+            auto characteristics = sections[i].characteristics.get();
 #ifdef DEBUG_LOGGING
-            std::cout << "[exception]" << std::endl;
+            std::cout << "[section_search]" << std::endl;
             std::cout
-                << "Reason: " << std::hex << exception_info->ExceptionRecord->ExceptionCode
-                << ", Addr: " << std::hex << exception_info->ExceptionRecord->ExceptionAddress
-                << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[0]
-                << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[1]
-                << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[2]
+                << "Off: " << std::hex << sections[i].rva.get()
+                << ", Size: " << std::hex << sections[i].size_of_data.get()
+                << ", Char: " << std::hex << characteristics
                 << std::endl;
-
-            std::cout
-                << "Rip: " << std::hex << rip
-                << ", Img: " << std::hex << iimg << std::endl;
 #endif
 
-            auto exception_page = exception_info->ExceptionRecord->ExceptionInformation[1];
-            for (auto i = 0; i < app->off_to_sections.num_elements; i++)
+            if (exception_page >= (iimg + sections[i].rva) &&
+                exception_page < ((iimg + sections[i].rva + sections[i].size_of_data)))
             {
-                uint64_t characteristics = sections[i].characteristics;
-#ifdef DEBUG_LOGGING
-                std::cout << "[section_search]" << std::endl;
-                std::cout
-                    << "Off: " << std::hex << sections[i].rva.get()
-                    << ", Size: " << std::hex << sections[i].size_of_data.get()
-                    << ", Char: " << std::hex << characteristics
-                    << std::endl;
-#endif
-
-                if (exception_page >= (iimg + sections[i].rva) &&
-                    exception_page < ((iimg + sections[i].rva + sections[i].size_of_data)))
+                if (characteristics & (uint64_t)packed_section_characteristic::can_lazy_load)
                 {
-                    if (characteristics & (uint64_t)packed_section_characteristic::can_lazy_load)
-                    {
-                        // this is the aligned offset into the section
-                        auto page_offset = PAGE_ADDR(exception_page) - (iimg + sections[i].rva);
+                    // this is the aligned offset into the section
+                    auto page_offset = PAGE_ADDR(exception_page) - (iimg + sections[i].rva);
 #ifdef DEBUG_LOGGING
-                        std::cout << "[found]" << std::endl;
-                        std::cout
-                            << "Rip: " << std::hex << exception_page
-                            << ", Off: " << std::hex << page_offset
-                            << std::endl;
+                    std::cout << "[found]" << std::endl;
+                    std::cout
+                        << "Rip: " << std::hex << exception_page
+                        << ", Off: " << std::hex << page_offset
+                        << std::endl;
 #endif
 
-                        DWORD old_protect;
-                        VirtualAlloc(img + sections[i].rva + page_offset, PAGE_SIZE_4KB, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+                    DWORD old_protect;
+                    VirtualAlloc(img + sections[i].rva + page_offset, PAGE_SIZE_4KB, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 
-                        memcpy(img + sections[i].rva + page_offset, (char*)begin + sections[i].off_to_data + page_offset, PAGE_SIZE_4KB);
-                        obfuscated_byte_array ba(img + sections[i].rva + page_offset, PAGE_SIZE_4KB);
-                        ba.decrypt();
+                    memcpy(img + sections[i].rva + page_offset, (char*)begin + sections[i].off_to_data + page_offset, PAGE_SIZE_4KB);
+                    obfuscated_byte_array ba(img + sections[i].rva + page_offset, PAGE_SIZE_4KB);
+                    ba.decrypt();
 
-                        return EXCEPTION_CONTINUE_EXECUTION;
-                    }
+                    return EXCEPTION_CONTINUE_EXECUTION;
                 }
             }
         }
-        else if (
-            exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
-            (exception_info->ExceptionRecord->ExceptionInformation[0] == 0x0 ||
-            exception_info->ExceptionRecord->ExceptionInformation[0] == 0x1))
+    }
+
+    static LONG decrypt_code_except_handler(_EXCEPTION_POINTERS* exception_info)
+    {
+        if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION)
         {
-            if (emulate_encrypted_ins(exception_info->ContextRecord, (void*)exception_info->ContextRecord->Rip))
+            if (exception_info->ExceptionRecord->ExceptionInformation[0] == 0x0 ||
+                exception_info->ExceptionRecord->ExceptionInformation[0] == 0x1)
             {
-                return EXCEPTION_CONTINUE_EXECUTION;
+                if (emulate_encrypted_ins(exception_info->ContextRecord, (void*)exception_info->ContextRecord->Rip))
+                {
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
+            }
+            else if (exception_info->ExceptionRecord->ExceptionInformation[0] == 0x8)
+            {
+                if (decrypt_section(exception_info->ContextRecord->Rip, exception_info->ExceptionRecord->ExceptionInformation[1]))
+                {
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
             }
         }
 
@@ -377,7 +386,8 @@ namespace bc
 
         cur_chal_entry = gen_chal_entry();
         cur_chal_entry.re_encrypt_code = re_encrypt_code;
-        cur_chal_entry.encrypt_ptr = (fn_encrypt_ptr)encrypt_ptr;
+        cur_chal_entry.alloc_enc = (fn_alloc_encrypted)allocate_encrypted;
+        cur_chal_entry.free_enc = (fn_free_encrypted)free_encrypted;
 
         if (has_option(app, packed_app_option::chal_entry))
         {
