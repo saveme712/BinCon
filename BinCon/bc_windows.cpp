@@ -15,7 +15,6 @@ namespace bc
 	static bool hang_system_in_progress = false;
 	static HHOOK dummy_keyboard_hook;
 
-
 	/// <summary>
 	/// Installs a hook on DbgUiRemoteBreakin so that the process
 	/// will crash whenever a debugger is attached.

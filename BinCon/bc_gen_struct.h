@@ -12,61 +12,61 @@ namespace bc
 
 	struct packed_import
 	{
-		char padding_0[34];
-		obfuscated_prim64<packed_import_type> type;
-		char padding_1[93];
+		char padding_0[2];
 		obfuscated_prim64<uint64_t> rva;
-		char padding_2[70];
+		char padding_1[99];
+		obfuscated_prim64<packed_import_type> type;
+		char padding_2[35];
 		obfuscated_prim64<uint32_t> ordinal;
-		char padding_3[6];
+		char padding_3[77];
 		obfuscated_string<256> name;
-		char padding_4[45];
+		char padding_4[65];
 		obfuscated_string<256> mod;
 	};
 
 	struct packed_section
 	{
-		char padding_0[89];
-		obfuscated_prim64<uint64_t> rva;
-		char padding_1[9];
-		obfuscated_prim64<uint64_t> off_to_data;
-		char padding_2[27];
-		obfuscated_prim64<uint64_t> characteristics;
-		char padding_3[61];
+		char padding_0[15];
 		obfuscated_prim64<uint64_t> size_of_data;
+		char padding_1[65];
+		obfuscated_prim64<uint64_t> characteristics;
+		char padding_2[32];
+		obfuscated_prim64<uint64_t> rva;
+		char padding_3[57];
+		obfuscated_prim64<uint64_t> off_to_data;
 	};
 
 	struct packed_reloc
 	{
-		char padding_0[48];
+		char padding_0[83];
 		obfuscated_prim64<uint64_t> rva;
 	};
 
 	struct counted_element
 	{
-		char padding_0[73];
-		obfuscated_prim64<uint64_t> num_elements;
-		char padding_1[65];
+		char padding_0[43];
 		obfuscated_prim64<uint64_t> off;
+		char padding_1[14];
+		obfuscated_prim64<uint64_t> num_elements;
 	};
 
 	struct packed_app
 	{
-		char padding_0[33];
-		counted_element off_to_iat;
-		char padding_1[81];
-		obfuscated_prim64<uint64_t> preferred_base;
-		char padding_2[64];
-		counted_element off_to_relocs;
-		char padding_3[9];
+		char padding_0[50];
 		obfuscated_prim64<uint8_t> options;
-		char padding_4[24];
+		char padding_1[44];
+		counted_element off_to_relocs;
+		char padding_2[69];
+		obfuscated_prim64<uint64_t> preferred_base;
+		char padding_3[65];
+		counted_element off_to_iat;
+		char padding_4[89];
 		counted_element off_to_sections;
-		char padding_5[37];
+		char padding_5[25];
 		obfuscated_prim64<uint64_t> size_of_img;
-		char padding_6[43];
+		char padding_6[38];
 		obfuscated_prim64<uint64_t> ep;
 	};
 
 }
-#pragma pop()
+#pragma pack(pop)

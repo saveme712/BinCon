@@ -7,11 +7,14 @@
 
 #include <xorstr.hpp>
 
+#include <Windows.h>
+
 namespace bc
 {
 #pragma pack(push, 1)
 	typedef void (*fn_verify_anti_debug)(fn_integrity_check_failed on_failure);
 	typedef void (*fn_re_encrypt_code)();
+	typedef void* (*fn_encrypt_ptr)(void* ptr);
 
 	enum class packed_app_option : uint8_t
 	{
@@ -36,6 +39,7 @@ namespace bc
 		obfuscated_prim64<uint64_t> run_tick;
 		obfuscated_prim64<fn_verify_anti_debug> verify_anti_debug;
 		obfuscated_prim64<fn_re_encrypt_code> re_encrypt_code;
+		obfuscated_prim64<fn_encrypt_ptr> encrypt_ptr;
 
 		union
 		{
@@ -74,6 +78,11 @@ namespace bc
 
 	_ret:
 		return r;
+	}
+
+	__forceinline chal_entry* get_chal_entry()
+	{
+		return (chal_entry*)GetProcAddress((HMODULE)0xBC, xorstr_("pack_interface"));
 	}
 #pragma pack(pop)
 }

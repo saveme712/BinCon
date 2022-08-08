@@ -4,6 +4,7 @@
 #include <iostream>
 #include <io.h>
 #include <fcntl.h>
+#include <map>
 
 #include <bc_stub.h>
 #include <bc_peb.h>
@@ -15,6 +16,8 @@
 
 #include <xorstr.hpp>
 
+#include <Zydis/Zydis.h>
+
 namespace bc
 {
     typedef int (*fn_main)(int argc, const char* argv[]);
@@ -22,6 +25,12 @@ namespace bc
 
     static packed_app* app = nullptr;
     static char* img;
+
+    static chal_entry cur_chal_entry;
+
+    // memory encryption imports
+    uint64_t encrypt_ptr(uint64_t ptr);
+    bool emulate_encrypted_ins(PCONTEXT context, void* ins);
 
     /// <summary>
     /// Re-encrypts all code sections.
@@ -60,7 +69,8 @@ namespace bc
         auto begin = (uint64_t)app;
         auto sections = (packed_section*)(begin + app->off_to_sections.off);
 
-        if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+        if (
+            exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
             exception_info->ExceptionRecord->ExceptionInformation[0] == 0x8)
         {
 #ifdef DEBUG_LOGGING
@@ -118,6 +128,35 @@ namespace bc
                 }
             }
         }
+        else if (
+            exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+            (exception_info->ExceptionRecord->ExceptionInformation[0] == 0x0 ||
+            exception_info->ExceptionRecord->ExceptionInformation[0] == 0x1))
+        {
+            if (emulate_encrypted_ins(exception_info->ContextRecord, (void*)exception_info->ContextRecord->Rip))
+            {
+                return EXCEPTION_CONTINUE_EXECUTION;
+            }
+
+            std::cout << "..." << std::endl;
+            std::cin.get();
+        }
+
+#ifdef DEBUG_LOGGING
+        std::cout << "[unhandled exception]" << std::endl;
+        std::cout
+            << "Reason: " << std::hex << exception_info->ExceptionRecord->ExceptionCode
+            << ", Addr: " << std::hex << exception_info->ExceptionRecord->ExceptionAddress
+            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[0]
+            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[1]
+            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[2]
+            << std::endl;
+
+        while (TRUE)
+        {
+            Sleep(1000);
+        }
+#endif
 
         return EXCEPTION_CONTINUE_SEARCH;
     }
@@ -125,13 +164,13 @@ namespace bc
     __forceinline void bind_crt_handles_to_std_handles()
     {
         FILE* df_1;
-        freopen_s(&df_1, "nul", "r", stdin);
+        freopen_s(&df_1, xorstr_("nul"), xorstr_("r"), stdin);
 
         FILE* df_2;
-        freopen_s(&df_2, "nul", "w", stdout);
+        freopen_s(&df_2, xorstr_("nul"), xorstr_("w"), stdout);
 
         FILE* df_3;
-        freopen_s(&df_3, "nul", "w", stderr);
+        freopen_s(&df_3, xorstr_("nul"), xorstr_("w"), stderr);
 
         {
             auto std_handle = GetStdHandle(STD_INPUT_HANDLE);
@@ -140,7 +179,7 @@ namespace bc
                 auto file_desc = _open_osfhandle((intptr_t)std_handle, _O_TEXT);
                 if (file_desc != -1)
                 {
-                    auto file = _fdopen(file_desc, "r");
+                    auto file = _fdopen(file_desc, xorstr_("r"));
                     if (file != NULL)
                     {
                         auto dup2_res = _dup2(_fileno(file), _fileno(stdin));
@@ -160,7 +199,7 @@ namespace bc
                 auto file_desc = _open_osfhandle((intptr_t)std_handle, _O_TEXT);
                 if (file_desc != -1)
                 {
-                    auto file = _fdopen(file_desc, "w");
+                    auto file = _fdopen(file_desc, xorstr_("w"));
                     if (file != NULL)
                     {
                         int dup2_res = _dup2(_fileno(file), _fileno(stdout));
@@ -180,7 +219,7 @@ namespace bc
                 auto file_desc = _open_osfhandle((intptr_t)std_handle, _O_TEXT);
                 if (file_desc != -1)
                 {
-                    auto file = _fdopen(file_desc, "w");
+                    auto file = _fdopen(file_desc, xorstr_("w"));
                     if (file != NULL)
                     {
                         auto dup2_res = _dup2(_fileno(file), _fileno(stderr));
@@ -203,12 +242,23 @@ namespace bc
         std::cerr.clear();
     }
 
-    __forceinline std::vector<char> read_file(const std::string& name)
+    /// <summary>
+    /// Our hook for GetProcAddress. This allows us to query packer information without
+    /// a custom entry-point.
+    /// </summary>
+    static void* hook_get_proc_address(HMODULE m, const char* name)
     {
-        std::ifstream f(name, std::ios_base::binary);
-        return std::vector<char>(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
-    }
+        if (m == (HMODULE)0xBC && !strcmp(name, xorstr_("pack_interface")))
+        {
+            return &cur_chal_entry;
+        }
 
+        return GetProcAddress(m, name);
+    }
+    
+    /// <summary>
+    /// Maps the custom image format into the memory of this process as a some-what valid PE image.
+    /// </summary>
     __forceinline void* map()
     {
         auto begin = (uint64_t)app;
@@ -279,6 +329,13 @@ namespace bc
             {
                 // TODO FIXME errors
             }
+            else if (*((uint64_t*)(img + import.rva)) == (uint64_t)GetProcAddress)
+            {
+#ifdef DEBUG_LOGGING
+                std::cout << "[info] hooked GetProcAddress" << std::endl;
+#endif
+                *((uint64_t*)(img + import.rva)) = (uint64_t)hook_get_proc_address;
+            }
         }
 
         auto delta = (uint64_t)img - (uint64_t)app->preferred_base;
@@ -303,6 +360,7 @@ namespace bc
         UnlockResource(rsc_data);
         
         app = (packed_app*)copy;
+
         if (has_option(app, packed_app_option::lazy_load_code))
         {
             AddVectoredExceptionHandler(TRUE, decrypt_code_except_handler);
@@ -335,12 +393,15 @@ namespace bc
         std::cout << "Calling main @ " << std::hex << ((uint64_t)mapped + app->ep) << std::endl;
         std::cin.get();
 #endif
+
+        cur_chal_entry = gen_chal_entry();
+        cur_chal_entry.re_encrypt_code = re_encrypt_code;
+        cur_chal_entry.encrypt_ptr = (fn_encrypt_ptr)encrypt_ptr;
+
         if (has_option(app, packed_app_option::chal_entry))
         {
-            auto entry = gen_chal_entry();
-            entry.re_encrypt_code = re_encrypt_code;
 
-            ((fn_main_chal)((uint64_t)mapped + app->ep))(&entry);
+            ((fn_main_chal)((uint64_t)mapped + app->ep))(&cur_chal_entry);
         }
         else
         {

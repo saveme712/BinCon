@@ -150,10 +150,10 @@ void add_random(std::vector<obfuscation_pass>& passes)
     }
 }
 
-std::string generate_encrypt(std::vector<obfuscation_pass> passes)
+std::string generate_encrypt(std::vector<obfuscation_pass> passes, std::string name)
 {
     std::ostringstream ss;
-    generate_macro(ss, "ENCRYPT");
+    generate_macro(ss, name);
     generate_header(ss);
     for (auto pass : passes)
     {
@@ -174,12 +174,12 @@ std::string generate_encrypt(std::vector<obfuscation_pass> passes)
     return ss.str();
 }
 
-std::string generate_decrypt(std::vector<obfuscation_pass> passes)
+std::string generate_decrypt(std::vector<obfuscation_pass> passes, std::string name)
 {
     std::ostringstream ss;
     std::reverse(passes.begin(), passes.end());
 
-    generate_macro(ss, "DECRYPT");
+    generate_macro(ss, name);
     generate_header(ss);
     for (auto pass : passes)
     {
@@ -249,13 +249,12 @@ int main()
         add_random(passes);
     }
 
-    std::cout << generate_encrypt(passes);
-    std::cout << generate_decrypt(passes);
-
     std::ofstream gen_of("bc_gen.h", std::ios::out);
     gen_of << "#pragma once" << std::endl;
-    gen_of << generate_encrypt(passes) << std::endl;
-    gen_of << generate_decrypt(passes) << std::endl;
+    gen_of << generate_encrypt(passes, "ENCRYPT") << std::endl;
+    gen_of << generate_decrypt(passes, "DECRYPT") << std::endl;
+    gen_of << generate_encrypt(passes, "ENCRYPTM") << std::endl;
+    gen_of << generate_decrypt(passes, "DECRYPTM") << std::endl;
     gen_of.close();
 
     std::ofstream gens_of("bc_gen_struct.h", std::ios::out);
@@ -302,7 +301,7 @@ int main()
         });
 
     gens_of << "}" << std::endl;
-    gens_of << "#pragma pop()" << std::endl;
+    gens_of << "#pragma pack(pop)" << std::endl;
     gens_of.close();
 
 }
