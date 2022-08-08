@@ -32,6 +32,12 @@ struct packed_import
 };
 ```
 
+All projects share the same generated files, which can be leveraged for communication from app <-> packer. The packer has a provided communication channel with a hook on `GetProcAddress`.
+
+```
+(chal_entry*)GetProcAddress((HMODULE)0xBC, xorstr_("pack_interface"))
+```
+
 ## Encrypted Sections
 Keep your code sections encrypted and unavailable in memory until they're accessed, with periodic re-encryption.
 
