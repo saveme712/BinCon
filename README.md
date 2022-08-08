@@ -34,7 +34,7 @@ struct packed_import
 
 All projects share the same generated files, which can be leveraged for communication from app <-> packer. The packer has a provided communication channel with a hook on `GetProcAddress`.
 
-```
+```C++
 (chal_entry*)GetProcAddress((HMODULE)0xBC, xorstr_("pack_interface"))
 ```
 
