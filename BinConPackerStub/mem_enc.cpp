@@ -54,6 +54,7 @@ namespace bc
     void free_encrypted(uint64_t addr)
     {
         encrypted_ptr_map.erase(addr);
+        free((void*)encrypted_ptr_map[addr].real.get());
     }
 
     uint64_t find_encrypted(uint64_t fake_search)
@@ -67,6 +68,7 @@ namespace bc
                 return real_addr + (fake_search - fake_addr);
             }
         }
+        return 0;
     }
 
     /// <summary>
@@ -84,6 +86,10 @@ namespace bc
             return context->Rdx;
         case ZydisRegister::ZYDIS_REGISTER_RBX:
             return context->Rbx;
+        case ZydisRegister::ZYDIS_REGISTER_RDI:
+            return context->Rdi;
+        case ZydisRegister::ZYDIS_REGISTER_RSI:
+            return context->Rsi;
         case ZydisRegister::ZYDIS_REGISTER_R8:
             return context->R8;
         case ZydisRegister::ZYDIS_REGISTER_R9:
@@ -122,6 +128,12 @@ namespace bc
             break;
         case ZydisRegister::ZYDIS_REGISTER_RBX:
             context->Rbx = val;
+            break;
+        case ZydisRegister::ZYDIS_REGISTER_RDI:
+            context->Rdi = val;
+            break;
+        case ZydisRegister::ZYDIS_REGISTER_RSI:
+            context->Rsi = val;
             break;
         case ZydisRegister::ZYDIS_REGISTER_R8:
             context->R8 = val;
@@ -168,13 +180,22 @@ namespace bc
                 auto& op = instruction.operands[i];
                 if (op.type == ZydisOperandType::ZYDIS_OPERAND_TYPE_MEMORY)
                 {
-                    auto base = op.mem.base;
-                    auto base_r = retrieve_context(context, base);
-
-                    if (auto translated = find_encrypted(base_r))
+                    if (auto base_r1 = retrieve_context(context, op.mem.base))
                     {
-                        update_context(context, op.mem.base, translated);
-                        any = true;
+                        if (auto translated = find_encrypted(base_r1))
+                        {
+                            update_context(context, op.mem.base, translated);
+                            any = true;
+                        }
+                    }
+
+                    if (auto base_r2 = retrieve_context(context, op.mem.index))
+                    {
+                        if (auto translated = find_encrypted(base_r2 * op.mem.scale))
+                        {
+                            update_context(context, op.mem.index, translated);
+                            any = true;
+                        }
                     }
                 }
             }
