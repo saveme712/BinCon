@@ -14,7 +14,23 @@ Support for transparent obfuscation of pointers, where the decryption is handled
 emulate the memory read with the real decrypted address.
 
 ## Build Time Randomization
-The expression used to obfuscate variables will be randomized before a build is started.
+The expression used to obfuscate variables will be randomized before a build is started. The file format of the packer is completely randomized.
+
+```C++
+struct packed_import
+{
+	char padding_0[2];
+	obfuscated_prim64<uint64_t> rva;
+	char padding_1[99];
+	obfuscated_prim64<packed_import_type> type;
+	char padding_2[35];
+	obfuscated_prim64<uint32_t> ordinal;
+	char padding_3[77];
+	obfuscated_string<256> name;
+	char padding_4[65];
+	obfuscated_string<256> mod;
+};
+```
 
 ## Encrypted Sections
 Keep your code sections encrypted and unavailable in memory until they're accessed, with periodic re-encryption.
