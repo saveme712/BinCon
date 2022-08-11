@@ -304,9 +304,7 @@ namespace bc
             }
             else if (*((uint64_t*)(img + import.rva)) == (uint64_t)GetProcAddress)
             {
-#ifdef DEBUG_LOGGING
-                std::cout << "[info] hooked GetProcAddress" << std::endl;
-#endif
+                LOG("[info] hooked GetProcAddress");
                 *((uint64_t*)(img + import.rva)) = (uint64_t)hook_get_proc_address;
             }
         }
