@@ -2,10 +2,15 @@
 
 namespace bc
 {
+	#define NOINLINE __declspec(noinline)
+	#define INLINE __forceinline
+
 	enum class bc_error
 	{
 		success,
 		not_enough_memory,
-		bad_hook_checksum
+		bad_hook_checksum,
+		debugger_attached,
+		bad_module_checksum,
 	};
 }

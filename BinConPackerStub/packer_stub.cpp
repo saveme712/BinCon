@@ -13,6 +13,8 @@
 #include <bc_integrity.h>
 #include <bc_memory.h>
 #include <bc_windows.h>
+#include <bc_log.h>
+#include <bc_pe.h>
 
 #include <xorstr.hpp>
 
@@ -25,8 +27,11 @@ namespace bc
 
     static packed_app* app = nullptr;
     static char* img;
-
     static chal_entry cur_chal_entry;
+
+    // PE validators
+    static pe_validator ntdll_validator;
+    static pe_validator kernel32_validator;
 
     // memory encryption imports
     void free_encrypted(uint64_t addr);
@@ -72,32 +77,15 @@ namespace bc
         auto begin = (uint64_t)app;
         auto sections = (packed_section*)(begin + app->off_to_sections.off);
 
-#ifdef DEBUG_LOGGING
-        std::cout << "[exception]" << std::endl;
-        std::cout
-            << "Reason: " << std::hex << exception_info->ExceptionRecord->ExceptionCode
-            << ", Addr: " << std::hex << exception_info->ExceptionRecord->ExceptionAddress
-            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[0]
-            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[1]
-            << ", Info: " << std::hex << exception_info->ExceptionRecord->ExceptionInformation[2]
-            << std::endl;
-
-        std::cout
-            << "Rip: " << std::hex << rip
-            << ", Img: " << std::hex << iimg << std::endl;
-#endif
+        LOG("[exception]");
+        LOG("Rip: " << std::hex << rip
+            << ", Img: " << std::hex << iimg);
 
         for (auto i = 0; i < app->off_to_sections.num_elements; i++)
         {
             auto characteristics = sections[i].characteristics.get();
-#ifdef DEBUG_LOGGING
-            std::cout << "[section_search]" << std::endl;
-            std::cout
-                << "Off: " << std::hex << sections[i].rva.get()
-                << ", Size: " << std::hex << sections[i].size_of_data.get()
-                << ", Char: " << std::hex << characteristics
-                << std::endl;
-#endif
+            LOG("[section_search]");
+            LOG("Off: " << std::hex << sections[i].rva.get() << ", Size: " << std::hex << sections[i].size_of_data.get() << ", Char: ");
 
             if (exception_page >= (iimg + sections[i].rva) &&
                 exception_page < ((iimg + sections[i].rva + sections[i].size_of_data)))
@@ -106,13 +94,8 @@ namespace bc
                 {
                     // this is the aligned offset into the section
                     auto page_offset = PAGE_ADDR(exception_page) - (iimg + sections[i].rva);
-#ifdef DEBUG_LOGGING
-                    std::cout << "[found]" << std::endl;
-                    std::cout
-                        << "Rip: " << std::hex << exception_page
-                        << ", Off: " << std::hex << page_offset
-                        << std::endl;
-#endif
+                    LOG("[found]");
+                    LOG("Rip: " << std::hex << exception_page << ", Off: " << std::hex << page_offset);
 
                     DWORD old_protect;
                     VirtualAlloc(img + sections[i].rva + page_offset, PAGE_SIZE_4KB, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
@@ -337,6 +320,24 @@ namespace bc
         return img;
     }
 
+    static void verify_anti_debug_pack(fn_integrity_check_failed on_fail)
+    {
+        if (!ntdll_validator.validate((void*)GetModuleHandleA(xorstr_("ntdll.dll"))))
+        {
+            on_fail(bc_error::bad_module_checksum);
+        }
+
+        if (!kernel32_validator.validate((void*)GetModuleHandleA(xorstr_("kernel32.dll"))))
+        {
+            on_fail(bc_error::bad_module_checksum);
+        }
+
+        if (has_option(app, packed_app_option::anti_debug))
+        {
+            verify_anti_debug(on_fail);
+        }
+    }
+
     void run()
     {
         BEGIN_VM(__FUNCTION__);
@@ -351,16 +352,6 @@ namespace bc
         
         app = (packed_app*)copy;
 
-        if (has_option(app, packed_app_option::lazy_load_code))
-        {
-            AddVectoredExceptionHandler(TRUE, decrypt_code_except_handler);
-        }
-
-        if (has_option(app, packed_app_option::anti_debug))
-        {
-            install_anti_debug();
-        }
-
         if (has_option(app, packed_app_option::console))
         {
             if (AllocConsole())
@@ -371,27 +362,35 @@ namespace bc
             }
         }
 
-        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)re_encrypt_code_thread, NULL, 0, NULL);
+        LOG("Adding VEH");
+        AddVectoredExceptionHandler(TRUE, decrypt_code_except_handler);
 
-#ifdef DEBUG_LOGGING
-        std::cout << "Mapping" << std::endl;
-        std::cin.get();
-#endif
+        if (has_option(app, packed_app_option::anti_debug))
+        {
+            LOG("Installing anti-debug");
+            install_anti_debug();
+        }
+
+        LOG("Creating PE validators");
+        ntdll_validator = pe_validator::map(GetModuleHandleA(xorstr_("ntdll.dll")));
+        kernel32_validator = pe_validator::map(GetModuleHandleA(xorstr_("kernel32.dll")));
+
+        LOG("Mapping");
         auto mapped = map();
 
-#ifdef DEBUG_LOGGING
-        std::cout << "Calling main @ " << std::hex << ((uint64_t)mapped + app->ep) << std::endl;
-        std::cin.get();
-#endif
-
+        LOG("Generating chal entry");
         cur_chal_entry = gen_chal_entry();
         cur_chal_entry.re_encrypt_code = re_encrypt_code;
         cur_chal_entry.alloc_enc = (fn_alloc_encrypted)allocate_encrypted;
         cur_chal_entry.free_enc = (fn_free_encrypted)free_encrypted;
+        cur_chal_entry.verify_anti_debug = verify_anti_debug_pack;
 
+        LOG("Creating re-entry code thread");
+        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)re_encrypt_code_thread, NULL, 0, NULL);
+
+        LOG("Calling main @ " << std::hex << ((uint64_t)mapped + app->ep));
         if (has_option(app, packed_app_option::chal_entry))
         {
-
             ((fn_main_chal)((uint64_t)mapped + app->ep))(&cur_chal_entry);
         }
         else
@@ -411,6 +410,7 @@ namespace bc
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
+    bc::init_crc32_table();
     bc::run();
     return 0;
 }

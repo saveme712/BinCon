@@ -10,4 +10,5 @@
 
 #define BEGIN_VM(X)
 #define END_VM(X)
+#define VM(X) BEGIN_VM(__FUNCTION__); X; END_VM(__FUNCTION);
 #endif

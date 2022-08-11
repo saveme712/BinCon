@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="bc_integrity.cpp" />
     <ClCompile Include="bc_memory.cpp" />
+    <ClCompile Include="bc_pe.cpp" />
     <ClCompile Include="bc_peb.cpp" />
     <ClCompile Include="bc_util.cpp" />
     <ClCompile Include="bc_windows.cpp" />
@@ -30,7 +31,9 @@
     <ClInclude Include="..\inc\bc_gen.h" />
     <ClInclude Include="..\inc\bc_gen_struct.h" />
     <ClInclude Include="..\inc\bc_integrity.h" />
+    <ClInclude Include="..\inc\bc_log.h" />
     <ClInclude Include="..\inc\bc_memory.h" />
+    <ClInclude Include="..\inc\bc_pe.h" />
     <ClInclude Include="..\inc\bc_peb.h" />
     <ClInclude Include="..\inc\bc_thirdparty.h" />
     <ClInclude Include="..\inc\bc_undocumented.h" />
@@ -160,7 +163,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG_LOG;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>

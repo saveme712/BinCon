@@ -54,6 +54,11 @@ int main()
 	}
 
 	auto ce = bc::get_chal_entry();
+	ce->verify_anti_debug([](auto err)
+	{
+
+	});
+
 	while (true)
 	{
 		std::cout << "Health: " << emulated_secret->health.get() << std::endl;
