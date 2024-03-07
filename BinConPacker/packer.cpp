@@ -10,17 +10,26 @@
 
 namespace bc
 {
+	struct pre_packed_resource
+	{
+		uint16_t id;
+		uint64_t off;
+		uint64_t size;
+	};
+
 	class byte_allocator
 	{
 	public:
 		void* img = nullptr;
 		size_t cur_size = 0;
+		size_t max_size = 0;
 
 	public:
 		byte_allocator(size_t size)
 		{
 			img = malloc(size);
 			memset(img, 0, size);
+			max_size = size;
 		}
 
 	public:
@@ -28,6 +37,11 @@ namespace bc
 		T* append(size_t amount)
 		{
 			auto ret = (char*)img + cur_size;
+			if ((ret + amount) > ((char*)img + max_size))
+			{
+				ERR("Out of bounds! " << cur_size << ":" << max_size << ":" << amount);
+			}
+
 			cur_size += amount;
 			return (T*)ret;
 		}
@@ -88,46 +102,6 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 		return 0;
 	}
 
-	static __forceinline PIMAGE_RESOURCE_DIRECTORY_ENTRY get_child_by_idx(PIMAGE_RESOURCE_DIRECTORY directory, PIMAGE_RESOURCE_DIRECTORY_ENTRY entry, SIZE_T idx)
-	{
-		if (entry->OffsetToData & IMAGE_RESOURCE_DATA_IS_DIRECTORY)
-		{
-			auto new_dir = (PIMAGE_RESOURCE_DIRECTORY)((char*)directory + (entry->OffsetToDirectory));
-			auto num_entries = new_dir->NumberOfIdEntries + new_dir->NumberOfNamedEntries;
-
-			if (num_entries)
-			{
-				PIMAGE_RESOURCE_DIRECTORY_ENTRY child = (PIMAGE_RESOURCE_DIRECTORY_ENTRY)((char*)new_dir + sizeof(IMAGE_RESOURCE_DIRECTORY));
-				return &child[idx];
-			}
-		}
-
-		return NULL;
-	}
-
-	static __forceinline PIMAGE_RESOURCE_DIRECTORY_ENTRY get_child_by_id(PIMAGE_RESOURCE_DIRECTORY directory, PIMAGE_RESOURCE_DIRECTORY_ENTRY entry, SIZE_T id)
-	{
-		if (entry->OffsetToData & IMAGE_RESOURCE_DATA_IS_DIRECTORY)
-		{
-			auto new_dir = (PIMAGE_RESOURCE_DIRECTORY)((char*)directory + (entry->OffsetToDirectory));
-			auto num_entries = new_dir->NumberOfIdEntries + new_dir->NumberOfNamedEntries;
-
-			if (num_entries)
-			{
-				auto child = (PIMAGE_RESOURCE_DIRECTORY_ENTRY)((char*)new_dir + sizeof(IMAGE_RESOURCE_DIRECTORY));
-				for (auto i = 0; i < num_entries; i++)
-				{
-					if (child[i].Name == i)
-					{
-						return &child[i];
-					}
-				}
-			}
-		}
-
-		return NULL;
-	}
-
 	template<typename FN>
 	static __forceinline void parse_rsc_entries(SIZE_T num_tabs, std::vector<uint16_t>& name_stack, PIMAGE_RESOURCE_DIRECTORY directory, PIMAGE_RESOURCE_DIRECTORY_ENTRY entry, FN iterator)
 	{
@@ -155,13 +129,6 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 		name_stack.erase(name_stack.end() - 1);
 	}
 
-	struct PrePackedResource
-	{
-		uint16_t id;
-		uint64_t off;
-		uint64_t size;
-	};
-
 	void fill_rng(void* p, size_t sz)
 	{
 		for (size_t i = 0; i < sz; i++)
@@ -174,7 +141,11 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 	{
 		if (auto fva = packed_rva_to_fva(app, data_directory->VirtualAddress))
 		{
-			fill_rng((char*)app + fva, data_directory->Size);
+			auto end_fva = fva + data_directory->Size;
+			if (fva >= 0 && end_fva < (app->size_of_app.get()))
+			{
+				fill_rng((char*)app + fva, data_directory->Size);
+			}
 		}
 	}
 
@@ -191,7 +162,7 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 		auto import_count = 0;
 		auto tls_callback_count = 0;
 		auto rsc_size = 0;
-		std::vector<PrePackedResource> resource_data_entries;
+		std::vector<pre_packed_resource> resource_data_entries;
 		if (auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress)
 		{
 			auto base_reloc_dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
@@ -273,7 +244,7 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 						{
 							rsc_size += entry->Size;
 
-							PrePackedResource rsc;
+							pre_packed_resource rsc;
 							rsc.id = name_stack[1];
 							rsc.off = rva_to_fva(nt, entry->OffsetToData);
 							rsc.size = entry->Size;
@@ -284,10 +255,10 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 			}
 		}
 
-		
         auto size_of_img =
             sizeof(packed_app) +
-            (nt->FileHeader.NumberOfSections * sizeof(packed_section)) +\
+			nt->OptionalHeader.SizeOfHeaders +
+            (nt->FileHeader.NumberOfSections * sizeof(packed_section)) +
 			(resource_data_entries.size() * sizeof(packed_resource)) +
 			(reloc_count * sizeof(packed_reloc)) +
 			(import_count * sizeof(packed_import)) +
@@ -298,22 +269,32 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 		INFO(" -> image_data" << std::endl);
 		INFO("  -> section_count= " << nt->FileHeader.NumberOfSections);
 		INFO("  -> resource_count= " << resource_data_entries.size());
-		INFO("  -> reloc_count= " << reloc_count);
+		INFO("  -> reloc_count= " << reloc_count << ":" << rsc_size);
 		INFO("  -> import_count= " << import_count);
 		INFO("  -> tls_cb_count= " << tls_callback_count);
 		INFO("  -> size_of_img= " << size_of_img);
 
-		INFO(" -> building headers");
-
 		byte_allocator allocator(size_of_img);
 		auto app = allocator.append<packed_app>(sizeof(packed_app));
+		INFO(" -> app sz:" << allocator.cur_size << ":" << allocator.max_size);
 
 		auto headers = allocator.append<char>(nt->OptionalHeader.SizeOfHeaders);
+		INFO(" -> headers sz:" << allocator.cur_size << ":" << allocator.max_size);
+
 		auto sections = allocator.append<packed_section>(nt->FileHeader.NumberOfSections * sizeof(packed_section));
+		INFO(" -> sections sz:" << allocator.cur_size << ":" << allocator.max_size);
+
 		auto resources = allocator.append<packed_resource>(resource_data_entries.size() * sizeof(packed_resource));
+		INFO(" -> resources sz:" << allocator.cur_size << ":" << allocator.max_size);
+
 		auto imports = allocator.append<packed_import>(import_count * sizeof(packed_import));
+		INFO(" -> import sz:" << allocator.cur_size << ":" << allocator.max_size);
+
 		auto relocs = allocator.append<packed_reloc>(reloc_count * sizeof(packed_reloc));
+		INFO(" -> reloc sz:" << allocator.cur_size << ":" << allocator.max_size);
+
 		auto tls_callbacks = allocator.append<packed_reloc>(tls_callback_count * sizeof(packed_tls_callback));
+		INFO(" -> tls cb sz:" << allocator.cur_size << ":" << allocator.max_size);
 
 		if (cfg_command_line)
 		{
@@ -327,6 +308,7 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 
 		app->ep = nt->OptionalHeader.AddressOfEntryPoint;
 		app->size_of_img = nt->OptionalHeader.SizeOfImage;
+		app->size_of_app = size_of_img;
 		app->preferred_base = nt->OptionalHeader.ImageBase;
 
 		app->off_to_headers.num_elements = nt->OptionalHeader.SizeOfHeaders;
@@ -347,7 +329,7 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 		INFO(" -> building headers");
 		memcpy(headers, dos, nt->OptionalHeader.SizeOfHeaders);
 
-		INFO(" -> building sections");
+		INFO(" -> building sections:" << allocator.cur_size << ":" << allocator.max_size);
 		sect = IMAGE_FIRST_SECTION(nt);
 		for (auto i = 0; i < nt->FileHeader.NumberOfSections; i++, sect++)
 		{
@@ -448,6 +430,7 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 			}
 		}
 
+		INFO("building TLS");
 		if (auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress)
 		{
 			auto tls_ptr = 0;
@@ -464,6 +447,9 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 			}
 		}
 
+		INFO("Allocator: " << size_of_img << ":" << allocator.cur_size);
+
+		INFO("Erasing data directories from sections");
 		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS], app);
 		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC], app);
 		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DEBUG], app);
@@ -471,11 +457,16 @@ return rva - sect->VirtualAddress + sect->PointerToRawData;
 		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT], app);
 		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG], app);
 
+		INFO("Beginning resource update");
 		auto rsc = BeginUpdateResource(L"BinConPackerStub.exe", TRUE);
+
+		INFO("Updating resource " << rsc);
 		if (UpdateResource(rsc, RT_RCDATA, L"p", MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), (char*)allocator.img, allocator.cur_size))
 		{
 			EndUpdateResource(rsc, FALSE);
 		}
+
+		INFO("Done!");
     }
 }
 

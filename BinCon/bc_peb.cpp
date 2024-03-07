@@ -66,7 +66,7 @@ namespace bc
 			auto ods = (USHORT*)(mod + expr->AddressOfNameOrdinals);
 			auto funcs = (INT32*)(mod + expr->AddressOfFunctions);
 
-			for (auto i = 0; i < expr->NumberOfNames; i++)
+			for (auto i = 0ul; i < expr->NumberOfNames; i++)
 			{
 				auto name_off = names[i];
 				strcpy_s(tmp_name, (PCSTR)mod + name_off);

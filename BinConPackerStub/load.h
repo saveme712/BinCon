@@ -94,6 +94,7 @@ namespace bc
                 *((uint64_t*)(BC.img + import.rva)) = resolved;
                 break;
             }
+
             case packed_import_type::ordinal:
                 LOG("[info] import ordinal " << import.ordinal.get());
                 resolved = (uint64_t)gpa(module, MAKEINTRESOURCEA(import.ordinal.get()));

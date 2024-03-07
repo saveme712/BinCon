@@ -22,7 +22,6 @@
     <ClCompile Include="bc_gen.cpp" />
     <ClCompile Include="bc_iat.cpp" />
     <ClCompile Include="bc_integrity.cpp" />
-    <ClCompile Include="bc_memory.cpp" />
     <ClCompile Include="bc_pe.cpp" />
     <ClCompile Include="bc_peb.cpp" />
     <ClCompile Include="bc_util.cpp" />
@@ -30,12 +29,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\inc\bc_common.h" />
+    <ClInclude Include="..\inc\bc_dyn_struct.h" />
     <ClInclude Include="..\inc\bc_gen.h" />
     <ClInclude Include="..\inc\bc_gen_struct.h" />
     <ClInclude Include="..\inc\bc_iat.h" />
     <ClInclude Include="..\inc\bc_integrity.h" />
     <ClInclude Include="..\inc\bc_log.h" />
-    <ClInclude Include="..\inc\bc_memory.h" />
     <ClInclude Include="..\inc\bc_pe.h" />
     <ClInclude Include="..\inc\bc_peb.h" />
     <ClInclude Include="..\inc\bc_thirdparty.h" />

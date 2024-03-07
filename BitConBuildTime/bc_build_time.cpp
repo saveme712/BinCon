@@ -388,6 +388,7 @@ int main()
     gens_of << generate_struct("packed_app", {
         {"obfuscated_prim64<uint8_t, 0x1337, __LINE__>", "options"},
         {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "size_of_img"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "size_of_app"},
         {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "preferred_base"},
         {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "ep"},
         {"counted_element", "off_to_relocs"},

@@ -11,8 +11,8 @@
 #include <bc_util.h>
 #include <bc_thirdparty.h>
 #include <bc_integrity.h>
-#include <bc_memory.h>
 #include <bc_windows.h>
+#include <bc_log.h>
 
 #include <xorstr.hpp>
 

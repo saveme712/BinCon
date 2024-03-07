@@ -125,16 +125,16 @@ namespace bc
 			uint64_t tk = *((uint64_t*)__TIME__);
 
 			uint64_t obf;
-			ENCRYPT(obf, (uint64_t)val, F ^ tk, FL);
+			ENCRYPT(obf, (uint64_t)val, F, FL);
 			this->obfuscated = obf;
 		}
 
-		__forceinline T get()
+		__forceinline T get() const
 		{
 			uint64_t tk = *((uint64_t*)__TIME__);
 
 			uint64_t deob;
-			DECRYPT(deob, obfuscated, F ^ tk, FL);
+			DECRYPT(deob, obfuscated, F, FL);
 			return (T)deob;
 		}
 
@@ -213,6 +213,11 @@ namespace bc
 		__forceinline obfuscated_prim64<T, F, FL> operator++()
 		{
 			return obfuscated_prim64<T, F, FL>(get()) + 1;
+		}
+
+		__forceinline bool operator < (const obfuscated_prim64<T, F, FL>& o) const
+		{
+			return get() < o.get();
 		}
 	};
 }

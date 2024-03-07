@@ -1,6 +1,9 @@
 #pragma once
 #include <Windows.h>
 
+#define PAGE_SIZE_4KB 0x1000
+#define PAGE_ADDR(X) (X & ~(PAGE_SIZE_4KB - 1))
+
 namespace bc
 {
 	typedef struct _RE_UNICODE_STRING

@@ -1,10 +1,13 @@
 #include "stub.h"
 
+#include <bc_iat.h>
+
 namespace bc
 {
     HRSRC hook_find_resource(HMODULE m, LPCSTR rsc, LPCSTR type)
     {
         UNREFERENCED_PARAMETER(m);
+        UNREFERENCED_PARAMETER(type);
 
         auto pca = (packed_resource*)((char*)BC.app + BC.app->off_to_resources.off);
         for (auto i = 0ull; i < BC.app->off_to_resources.num_elements; i++)
@@ -73,7 +76,7 @@ namespace bc
         proc = peb.resolve_function((char*)m, name);
         if (!proc)
         {
-            proc = (void*)GetProcAddress(m, name);
+            proc = (void*)IAT.GetProcAddress(m, name);
         }
 
         if (!proc)

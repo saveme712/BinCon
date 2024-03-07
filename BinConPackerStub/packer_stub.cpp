@@ -75,11 +75,8 @@ namespace bc
             }
         }
 
-        if (has_option(BC.app, packed_app_option::lazy_load_code))
-        {
-            INFO("Adding VEH");
-            IAT.AddVectoredExceptionHandler(TRUE, decrypt_code_except_handler);
-        }
+        INFO("Adding VEH");
+        IAT.AddVectoredExceptionHandler(TRUE, decrypt_code_except_handler);
 
         if (has_option(BC.app, packed_app_option::anti_debug))
         {
