@@ -6,86 +6,86 @@ namespace bc
 #pragma pack(push, 1)
 	enum class packed_import_type
 	{
-		ordinal,
 		name,
+		ordinal,
 	};
 
 	struct packed_import
 	{
-		char padding_0[4];
-		obfuscated_prim64<packed_import_type, 0x1337, __LINE__> type;
-		char padding_1[43];
-		obfuscated_prim64<uint64_t, 0x1337, __LINE__> rva;
-		char padding_2[78];
+		char padding_0[29];
 		obfuscated_prim64<uint32_t, 0x1337, __LINE__> ordinal;
-		char padding_3[74];
+		char padding_1[84];
+		obfuscated_prim64<uint64_t, 0x1337, __LINE__> rva;
+		char padding_2[91];
+		obfuscated_prim64<packed_import_type, 0x1337, __LINE__> type;
+		char padding_3[44];
 		obfuscated_string<256, 0x1337, __LINE__> name;
-		char padding_4[4];
+		char padding_4[44];
 		obfuscated_string<256, 0x1337, __LINE__> mod;
 	};
 
 	struct packed_section
 	{
-		char padding_0[89];
-		obfuscated_prim64<uint64_t, 0x1337, __LINE__> characteristics;
-		char padding_1[51];
-		obfuscated_prim64<uint64_t, 0x1337, __LINE__> rva;
-		char padding_2[62];
-		obfuscated_prim64<uint64_t, 0x1337, __LINE__> off_to_data;
-		char padding_3[89];
+		char padding_0[33];
 		obfuscated_prim64<uint64_t, 0x1337, __LINE__> size_of_data;
+		char padding_1[37];
+		obfuscated_prim64<uint64_t, 0x1337, __LINE__> off_to_data;
+		char padding_2[47];
+		obfuscated_prim64<uint64_t, 0x1337, __LINE__> characteristics;
+		char padding_3[2];
+		obfuscated_prim64<uint64_t, 0x1337, __LINE__> rva;
 	};
 
 	struct packed_resource
 	{
-		char padding_0[18];
+		char padding_0[15];
 		obfuscated_prim64<uint64_t, 0x1337, __LINE__> size_of_data;
-		char padding_1[98];
+		char padding_1[79];
 		obfuscated_prim64<uint16_t, 0x1337, __LINE__> id;
-		char padding_2[44];
+		char padding_2[23];
 		obfuscated_prim64<uint64_t, 0x1337, __LINE__> off_to_data;
 	};
 
 	struct packed_reloc
 	{
-		char padding_0[86];
+		char padding_0[36];
 		obfuscated_prim64<uint64_t, 0x1337, __LINE__> rva;
 	};
 
 	struct packed_tls_callback
 	{
-		char padding_0[6];
+		char padding_0[87];
 		obfuscated_prim64<uint64_t, 0x1337, __LINE__> callback;
 	};
 
 	struct counted_element
 	{
-		char padding_0[80];
-		obfuscated_prim64<uint64_t, 0x1337, __LINE__> off;
-		char padding_1[21];
+		char padding_0[27];
 		obfuscated_prim64<uint64_t, 0x1337, __LINE__> num_elements;
+		char padding_1[23];
+		obfuscated_prim64<uint64_t, 0x1337, __LINE__> off;
 	};
 
 	struct packed_app
 	{
-		char padding_0[64];
+		char padding_0[15];
 		obfuscated_prim64<uint64_t, 0x1337, __LINE__> ep;
-		char padding_1[85];
-		counted_element off_to_iat;
-		char padding_2[5];
-		obfuscated_prim64<uint64_t, 0x1337, __LINE__> preferred_base;
-		char padding_3[83];
-		counted_element off_to_relocs;
-		char padding_4[56];
+		char padding_1[52];
 		obfuscated_prim64<uint8_t, 0x1337, __LINE__> options;
-		char padding_5[63];
+		char padding_2[37];
+		counted_element off_to_iat;
+		char padding_3[93];
 		counted_element off_to_headers;
-		char padding_6[87];
+		char padding_4[70];
 		counted_element off_to_resources;
-		char padding_7[45];
-		obfuscated_prim64<uint64_t, 0x1337, __LINE__> size_of_img;
-		char padding_8[19];
+		char padding_5[61];
 		counted_element off_to_sections;
+		char padding_6[85];
+		obfuscated_prim64<uint64_t, 0x1337, __LINE__> size_of_img;
+		char padding_7[97];
+		obfuscated_prim64<uint64_t, 0x1337, __LINE__> preferred_base;
+		char padding_8[3];
+		counted_element off_to_relocs;
 	};
 
 }

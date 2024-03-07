@@ -1,6 +1,7 @@
 #include <bc_pe.h>
 #include <bc_integrity.h>
 #include <bc_log.h>
+#include <bc_iat.h>
 
 #include <Psapi.h>
 
@@ -161,11 +162,11 @@ namespace bc
 		char name[MAX_PATH];
 		GetModuleFileNameExA(GetCurrentProcess(), mod, name, sizeof(name));
 
-		auto file = CreateFileA(name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		auto size = GetFileSize(file, NULL);
+		auto file = IAT.CreateFileA(name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		auto size = IAT.GetFileSize(file, NULL);
 		DWORD bytes_read = 0;
 		char* buffer = (char*)malloc(size + 1);
-		ReadFile(file, buffer, size, &bytes_read, NULL);
+		IAT.ReadFile(file, buffer, size, &bytes_read, NULL);
 
 		auto mapped = map((void*)mod, buffer);
 		free(buffer);

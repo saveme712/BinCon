@@ -4,8 +4,10 @@ namespace bc
 {
     HRSRC hook_find_resource(HMODULE m, LPCSTR rsc, LPCSTR type)
     {
+        UNREFERENCED_PARAMETER(m);
+
         auto pca = (packed_resource*)((char*)BC.app + BC.app->off_to_resources.off);
-        for (auto i = 0; i < BC.app->off_to_resources.num_elements; i++)
+        for (auto i = 0ull; i < BC.app->off_to_resources.num_elements; i++)
         {
             auto pc = &pca[i];
             if (pc->id == (uint16_t)rsc)
@@ -18,6 +20,7 @@ namespace bc
 
     HGLOBAL hook_load_resource(HMODULE m, HRSRC src)
     {
+        UNREFERENCED_PARAMETER(m);
         return (HGLOBAL)src;
     }
 
@@ -34,6 +37,8 @@ namespace bc
 
     DWORD hook_sizeof_resource(HMODULE m, HRSRC src)
     {
+        UNREFERENCED_PARAMETER(m);
+
         if (!src)
         {
             return NULL;

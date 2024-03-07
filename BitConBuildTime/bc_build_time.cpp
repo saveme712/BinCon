@@ -6,7 +6,7 @@
 
 #include <random>
 
-#define PERMUTATIONS 10
+#define PERMUTATIONS 30
 
 enum class obfuscation_type : int8_t
 {
@@ -19,14 +19,16 @@ enum class obfuscation_type : int8_t
 struct obfuscation_pass
 {
     obfuscation_type type;
-    uint64_t args[3];
+    uint64_t args[5];
 
-    obfuscation_pass(obfuscation_type type, uint64_t arg_a = 0, uint64_t arg_b = 0, uint64_t arg_c = 0)
+    obfuscation_pass(obfuscation_type type, uint64_t arg_a = 0, uint64_t arg_b = 0, uint64_t arg_c = 0, uint64_t arg_d = 0, uint64_t arg_e = 0)
     {
         this->type = type;
         args[0] = arg_a;
         args[1] = arg_b;
         args[2] = arg_c;
+        args[3] = arg_d;
+        args[4] = arg_e;
     }
 };
 
@@ -100,10 +102,12 @@ void generate_bit_swap(std::ostringstream& o, int num_bits, int a, int b)
     o << "\t\tO |= __b << " << a << "ull; \\" << std::endl;
 }
 
-void generate_inverse(std::ostringstream& o, uint64_t v1, uint64_t v2)
+void generate_inverse(std::ostringstream& o, uint64_t v1, uint64_t v2, uint64_t v3, uint64_t v4)
 {
     o << "\t\t*((uint16_t*)&O) *= " << v1 << "; \\" << std::endl;
     o << "\t\t*((uint16_t*)&O + 1) *= " << v2 << "; \\" << std::endl;
+    o << "\t\t*((uint16_t*)&O + 2) *= " << v3 << "; \\" << std::endl;
+    o << "\t\t*((uint16_t*)&O + 3) *= " << v4 << "; \\" << std::endl;
 }
 
 void generate_xor(std::ostringstream& o, uint64_t v)
@@ -134,6 +138,8 @@ void add_random(std::vector<obfuscation_pass>& passes)
     {
         auto v1 = ((uint64_t)rand() % 65535);
         auto v2 = ((uint64_t)rand() % 65535);
+        auto v3 = ((uint64_t)rand() % 65535);
+        auto v4 = ((uint64_t)rand() % 65535);
         auto mod = 0xfff00000 + ((rand() % 10) * 0x10000);
 
         do
@@ -146,19 +152,30 @@ void add_random(std::vector<obfuscation_pass>& passes)
             v2 = ((uint64_t)rand() % 65535);
         } while (!mul_inv(v2, mod));
 
-        passes.push_back(obfuscation_pass(type, v2, mod, v1));
+        do
+        {
+            v3 = ((uint64_t)rand() % 65535);
+        } while (!mul_inv(v3, mod));
+
+        do
+        {
+            v4 = ((uint64_t)rand() % 65535);
+        } while (!mul_inv(v4, mod));
+
+
+        passes.push_back(obfuscation_pass(type, v2, mod, v1, v3, v4));
         break;
     }
     }
 }
 
-std::string generate_encrypt(std::vector<obfuscation_pass> passes, std::string name)
+std::string generate_encrypt(std::vector<std::vector<obfuscation_pass>> passes, std::string name)
 {
     std::ostringstream ss;
     generate_macro(ss, name);
     generate_header(ss);
 
-    for (auto i = 0; i < PERMUTATIONS; i++)
+    for (auto i = 0; i < passes.size(); i++)
     {
         if (i > 0)
         {
@@ -172,31 +189,31 @@ std::string generate_encrypt(std::vector<obfuscation_pass> passes, std::string n
             ss << "else ";
         }
 
-        if (i != (PERMUTATIONS - 1))
+        if (i != (passes.size() - 1))
         {
-            ss << "if ((FL % " << (PERMUTATIONS - i - 1) << ") == 0)";
+            ss << "if ((FL % " << (passes.size() - i - 1) << ") == 0)";
         }
 
         ss << " \\" << std::endl;
         ss << "\t{" << " \\" << std::endl;
 
-        for (auto pass : passes)
+        for (auto pass : passes[i])
         {
             switch (pass.type)
             {
             case obfuscation_type::bswap:
-                generate_bit_swap(ss, pass.args[0], pass.args[1], pass.args[2]);
+                generate_bit_swap(ss, (int)pass.args[0], (int)pass.args[1], (int)pass.args[2]);
                 break;
             case obfuscation_type::xxor:
                 generate_xor(ss, pass.args[0]);
                 break;
             case obfuscation_type::m_inverse:
-                generate_inverse(ss, pass.args[2], pass.args[0]);
+                generate_inverse(ss, pass.args[2], pass.args[0], pass.args[3], pass.args[4]);
                 break;
             }
         }
 
-        if (i == (PERMUTATIONS - 1))
+        if (i == (passes.size() - 1))
         {
             ss << "\t}" << " \\" << std::endl;
         }
@@ -207,15 +224,14 @@ std::string generate_encrypt(std::vector<obfuscation_pass> passes, std::string n
     return ss.str();
 }
 
-std::string generate_decrypt(std::vector<obfuscation_pass> passes, std::string name)
+std::string generate_decrypt(std::vector<std::vector<obfuscation_pass>> passes, std::string name)
 {
     std::ostringstream ss;
-    std::reverse(passes.begin(), passes.end());
-
+    
     generate_macro(ss, name);
     generate_header(ss);
 
-    for (auto i = 0; i < PERMUTATIONS; i++)
+    for (auto i = 0; i < passes.size(); i++)
     {
         if (i > 0)
         {
@@ -229,31 +245,34 @@ std::string generate_decrypt(std::vector<obfuscation_pass> passes, std::string n
             ss << "else ";
         }
 
-        if (i != (PERMUTATIONS - 1))
+        if (i != (passes.size() - 1))
         {
-            ss << "if ((FL % " << (PERMUTATIONS - i - 1) << ") == 0)";
+            ss << "if ((FL % " << (passes.size() - i - 1) << ") == 0)";
         }
 
         ss << " \\" << std::endl;
         ss << "\t{" << " \\" << std::endl;
 
-        for (auto pass : passes)
+        auto current_passes = passes[i];
+        std::reverse(current_passes.begin(), current_passes.end());
+
+        for (auto& pass : current_passes)
         {
             switch (pass.type)
             {
             case obfuscation_type::bswap:
-                generate_bit_swap(ss, pass.args[0], pass.args[1], pass.args[2]);
+                generate_bit_swap(ss, (int)pass.args[0], (int)pass.args[1], (int)pass.args[2]);
                 break;
             case obfuscation_type::xxor:
                 generate_xor(ss, pass.args[0]);
                 break;
             case obfuscation_type::m_inverse:
-                generate_inverse(ss, mul_inv(pass.args[2], pass.args[1]), mul_inv(pass.args[0], pass.args[1]));
+                generate_inverse(ss, mul_inv(pass.args[2], pass.args[1]), mul_inv(pass.args[0], pass.args[1]), mul_inv(pass.args[3], pass.args[1]), mul_inv(pass.args[4], pass.args[1]));
                 break;
             }
         }
 
-        if (i == (PERMUTATIONS - 1))
+        if (i == (passes.size() - 1))
         {
             ss << "\t}" << " \\" << std::endl;
         }
@@ -303,13 +322,13 @@ std::string generate_enum(const char* struct_name, std::vector<struct_field> fie
 
 int main()
 {
-    std::srand(std::time(0));
-    srand(std::time(0));
+    std::srand((unsigned int)std::time(0));
+    srand((unsigned int)std::time(0));
 
-    std::vector<obfuscation_pass> passes;
-    for (int i = 0; i < 4; i++)
+    std::vector<std::vector<obfuscation_pass>> passes(PERMUTATIONS);
+    for (int i = 0; i < PERMUTATIONS; i++)
     {
-        add_random(passes);
+        add_random(passes[i]);
     }
 
     std::ofstream gen_of("bc_gen.h", std::ios::out);

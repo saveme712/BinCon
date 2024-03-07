@@ -4,6 +4,7 @@
 #include <bc_peb.h>
 #include <bc_thirdparty.h>
 #include <bc_log.h>
+#include <bc_iat.h>
 
 #include <cstdint>
 
@@ -72,12 +73,12 @@ namespace bc
 	static INLINE bool verify_debug_regs()
 	{
 		auto ret = false;
-		auto thr = GetCurrentThread();
+		auto thr = IAT.GetCurrentThread();
 
 		CONTEXT thr_ctx;
 		thr_ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 
-		if (!GetThreadContext(thr, &thr_ctx))
+		if (!IAT.GetThreadContext(thr, &thr_ctx))
 		{
 			goto _ret;
 		}
@@ -99,12 +100,12 @@ namespace bc
 	static INLINE bool randomize_debug_regs()
 	{
 		auto ret = false;
-		auto thr = GetCurrentThread();
+		auto thr = IAT.GetCurrentThread();
 
 		CONTEXT thr_ctx; 
 		thr_ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 
-		if (!GetThreadContext(thr, &thr_ctx))
+		if (!IAT.GetThreadContext(thr, &thr_ctx))
 		{
 			goto _ret;
 		}
@@ -114,7 +115,7 @@ namespace bc
 		thr_ctx.Dr2 = DR_MAGIC;
 		thr_ctx.Dr3 = DR_MAGIC;
 
-		if (!SetThreadContext(thr, &thr_ctx))
+		if (!IAT.SetThreadContext(thr, &thr_ctx))
 		{
 			goto _ret;
 		}
@@ -132,7 +133,7 @@ namespace bc
 			addr_DbgUiRemoteBreakin = walker.resolve_function(xorstr_(L"ntdll.dll"), xorstr_("DbgUiRemoteBreakin"));
 			hook_DbgUiRemoteBreakin();
 			randomize_debug_regs();
-			CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)hook_keyboard, NULL, 0, NULL);
+			IAT.CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)hook_keyboard, NULL, 0, NULL);
 		});
 	}
 
@@ -140,7 +141,7 @@ namespace bc
 	{
 		VM({
 			LOG("Checking IsDebuggerPresent");
-			if (IsDebuggerPresent())
+			if (IAT.IsDebuggerPresent())
 			{
 				on_failure(bc_error::debugger_attached);
 			}

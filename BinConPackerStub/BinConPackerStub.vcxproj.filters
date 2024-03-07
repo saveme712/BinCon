@@ -27,7 +27,7 @@
     <ClCompile Include="load.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="crt.inc">
+    <ClCompile Include="crt.h">
       <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -42,13 +42,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="load.inc">
+    <None Include="load.h">
       <Filter>Header Files</Filter>
     </None>
-    <None Include="stub.inc">
-      <Filter>Header Files</Filter>
-    </None>
-    <None Include="veh.inc">
+    <None Include="stub_inc.h">
       <Filter>Header Files</Filter>
     </None>
   </ItemGroup>

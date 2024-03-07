@@ -55,7 +55,6 @@ namespace bc
 			}
 		}
 
-	_ret:
 		return err;
 	}
 

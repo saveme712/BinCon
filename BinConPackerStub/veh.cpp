@@ -1,5 +1,7 @@
 #include "stub.h"
 
+#include <bc_iat.h>
+
 namespace bc
 {
     /// <summary>
@@ -8,7 +10,7 @@ namespace bc
     void re_encrypt_code()
     {
         disable_tf();
-        BC.iat.EnterCriticalSection(&BC.veh_section);
+        IAT.EnterCriticalSection(&BC.veh_section);
 
         auto num_pages_total = BC.mapped_areas.size();
         auto num_pages_encrypted = 0;
@@ -30,7 +32,7 @@ namespace bc
         auto iimg = (uint64_t)BC.img;
         auto iapp = (uint64_t)BC.app;
         auto sections = (packed_section*)(iapp + BC.app->off_to_sections.off);
-        auto time = BC.iat.GetTickCount64();
+        auto time = IAT.GetTickCount64();
 
         INFO("re-encrypting code (" << num_pages_total << ":" << num_pages_encrypted << ":" << num_pages_no_access << ")");
         for (auto& kv : BC.mapped_areas)
@@ -44,7 +46,7 @@ namespace bc
                 if (!ma.no_access)
                 {
                     DWORD old_protect;
-                    BC.iat.VirtualProtect((void*)full_addr, PAGE_SIZE_4KB, PAGE_NOACCESS, &old_protect);
+                    IAT.VirtualProtect((void*)full_addr, PAGE_SIZE_4KB, PAGE_NOACCESS, &old_protect);
 
                     ma.no_access = true;
                     ma.no_access_time = time + TIME_BETWEEN_NO_ACCESS_ENCRYPT;
@@ -60,7 +62,7 @@ namespace bc
             }
         }
 
-        BC.iat.LeaveCriticalSection(&BC.veh_section);
+        IAT.LeaveCriticalSection(&BC.veh_section);
     }
 
 
@@ -121,7 +123,7 @@ namespace bc
                         ma.encrypted = false;
                     }
 
-                    BC.iat.VirtualProtect(target_offset, PAGE_SIZE_4KB, PAGE_EXECUTE_READWRITE, &old_protect);
+                    IAT.VirtualProtect(target_offset, PAGE_SIZE_4KB, PAGE_EXECUTE_READWRITE, &old_protect);
                     ma.no_access = false;
 
                     ma.decrypt_hits += 1;
@@ -143,7 +145,7 @@ namespace bc
         auto app_opts = BC.app->options.get();
         auto lazy_load_code = (app_opts & (uint8_t)packed_app_option::lazy_load_code) != 0;
 
-        BC.iat.EnterCriticalSection(&BC.veh_section);
+        IAT.EnterCriticalSection(&BC.veh_section);
 
         if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
             exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
@@ -169,7 +171,7 @@ namespace bc
             }
         }
 
-        BC.iat.LeaveCriticalSection(&BC.veh_section);
+        IAT.LeaveCriticalSection(&BC.veh_section);
 
         END_VM(__FUNCTION__);
         return ret;
