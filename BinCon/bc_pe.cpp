@@ -156,7 +156,6 @@ namespace bc
 		return v;
 	}
 
-
 	pe_validator pe_validator::map(HMODULE mod)
 	{
 		char name[MAX_PATH];

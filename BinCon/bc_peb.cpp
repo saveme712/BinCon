@@ -31,14 +31,8 @@ namespace bc
 		return found;
 	}
 
-	void* peb_walker::resolve_function(const wchar_t* module, const char* function)
+	void* peb_walker::resolve_function(char* mod, const char* function)
 	{
-		auto mod = (char*)resolve_module(module);
-		if (!mod)
-		{
-			return nullptr;
-		}
-
 		char tmp_func[256];
 		strcpy_s(tmp_func, function);
 		_strlwr_s(tmp_func);
@@ -120,6 +114,17 @@ namespace bc
 		return nullptr;
 	}
 
+	void* peb_walker::resolve_function(const wchar_t* module, const char* function)
+	{
+		auto mod = (char*)resolve_module(module);
+		if (!mod)
+		{
+			return nullptr;
+		}
+
+		return resolve_function(mod, function);
+	}
+
 	bool peb_walker::is_within_module(void* addr)
 	{
 		bool within = false;
@@ -130,6 +135,23 @@ namespace bc
 				addr < (void*)((uint64_t)mod->DllBase + mod->SizeOfImage))
 			{
 				within = true;
+			}
+		});
+
+		return within;
+	}
+
+
+	HMODULE peb_walker::get_hmodule(void* addr)
+	{
+		HMODULE within = NULL;
+
+		iterate([&addr, &within](RE_LDR_DATA_TABLE_ENTRY* mod, PLIST_ENTRY list_entry)
+		{
+			if (addr >= mod->DllBase &&
+				addr < (void*)((uint64_t)mod->DllBase + mod->SizeOfImage))
+			{
+				within = (HMODULE)mod->DllBase;
 			}
 		});
 

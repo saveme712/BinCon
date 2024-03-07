@@ -6,45 +6,10 @@
 #include <iostream>
 
 #include <bc_stub.h>
+#include <bc_log.h>
 
 namespace bc
 {
-    std::vector<char> read_file(const std::string& name)
-    {
-        std::ifstream f(name, std::ios_base::binary);
-        return std::vector<char>(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
-    }
-
-	uint64_t rva_to_fva(PIMAGE_NT_HEADERS nt, uint64_t rva)
-	{
-		auto sect = IMAGE_FIRST_SECTION(nt);
-		for (auto i = 0; i < nt->FileHeader.NumberOfSections; i++, sect++)
-		{
-			if (rva >= sect->VirtualAddress && rva < (sect->VirtualAddress + sect->SizeOfRawData))
-			{
-				return rva - sect->VirtualAddress + sect->PointerToRawData;
-			}
-		}
-
-		std::cout << "[error] failed to resolve rva to fva " << std::hex << rva << std::endl;
-		return 0;
-	}
-
-	uint64_t fva_to_rva(PIMAGE_NT_HEADERS nt, uint64_t fva)
-	{
-		auto sect = IMAGE_FIRST_SECTION(nt);
-		for (auto i = 0; i < nt->FileHeader.NumberOfSections; i++, sect++)
-		{
-			if (fva >= sect->PointerToRawData && fva < (sect->PointerToRawData + sect->SizeOfRawData))
-			{
-				return fva - sect->PointerToRawData + sect->VirtualAddress;
-			}
-		}
-
-		std::cout << "[error] failed to resolve fva to rva " << std::hex << fva << std::endl;
-		return 0;
-	}
-
 	class byte_allocator
 	{
 	public:
@@ -73,29 +38,182 @@ namespace bc
 		}
 	};
 
-    void pack(char* input)
+    std::vector<char> read_file(const std::string& name)
+    {
+        std::ifstream f(name, std::ios_base::binary);
+        return std::vector<char>(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+    }
+
+	uint64_t rva_to_fva(PIMAGE_NT_HEADERS nt, uint64_t rva)
+	{
+		auto sect = IMAGE_FIRST_SECTION(nt);
+		for (auto i = 0; i < nt->FileHeader.NumberOfSections; i++, sect++)
+		{
+			if (rva >= sect->VirtualAddress && rva < (sect->VirtualAddress + sect->SizeOfRawData))
+			{
+return rva - sect->VirtualAddress + sect->PointerToRawData;
+			}
+		}
+
+		ERR("failed to resolve rva to fva " << std::hex << rva << std::endl);
+		return 0;
+	}
+
+	uint64_t fva_to_rva(PIMAGE_NT_HEADERS nt, uint64_t fva)
+	{
+		auto sect = IMAGE_FIRST_SECTION(nt);
+		for (auto i = 0; i < nt->FileHeader.NumberOfSections; i++, sect++)
+		{
+			if (fva >= sect->PointerToRawData && fva < (sect->PointerToRawData + sect->SizeOfRawData))
+			{
+				return fva - sect->PointerToRawData + sect->VirtualAddress;
+			}
+		}
+
+		ERR("failed to resolve fva to rva " << std::hex << fva << std::endl);
+		return 0;
+	}
+
+	uint64_t packed_rva_to_fva(packed_app* app, uint64_t rva)
+	{
+		auto sections = (packed_section*)((char*)app + app->off_to_sections.off.get());
+		for (auto i = 0; i < app->off_to_sections.num_elements.get(); i++)
+		{
+			auto section = &sections[i];
+			if (rva >= section->rva && rva < (section->rva + section->size_of_data))
+			{
+				return rva - section->rva + section->off_to_data;
+			}
+		}
+		return 0;
+	}
+
+	static __forceinline PIMAGE_RESOURCE_DIRECTORY_ENTRY get_child_by_idx(PIMAGE_RESOURCE_DIRECTORY directory, PIMAGE_RESOURCE_DIRECTORY_ENTRY entry, SIZE_T idx)
+	{
+		if (entry->OffsetToData & IMAGE_RESOURCE_DATA_IS_DIRECTORY)
+		{
+			auto new_dir = (PIMAGE_RESOURCE_DIRECTORY)((char*)directory + (entry->OffsetToDirectory));
+			auto num_entries = new_dir->NumberOfIdEntries + new_dir->NumberOfNamedEntries;
+
+			if (num_entries)
+			{
+				PIMAGE_RESOURCE_DIRECTORY_ENTRY child = (PIMAGE_RESOURCE_DIRECTORY_ENTRY)((char*)new_dir + sizeof(IMAGE_RESOURCE_DIRECTORY));
+				return &child[idx];
+			}
+		}
+
+		return NULL;
+	}
+
+	static __forceinline PIMAGE_RESOURCE_DIRECTORY_ENTRY get_child_by_id(PIMAGE_RESOURCE_DIRECTORY directory, PIMAGE_RESOURCE_DIRECTORY_ENTRY entry, SIZE_T id)
+	{
+		if (entry->OffsetToData & IMAGE_RESOURCE_DATA_IS_DIRECTORY)
+		{
+			auto new_dir = (PIMAGE_RESOURCE_DIRECTORY)((char*)directory + (entry->OffsetToDirectory));
+			auto num_entries = new_dir->NumberOfIdEntries + new_dir->NumberOfNamedEntries;
+
+			if (num_entries)
+			{
+				auto child = (PIMAGE_RESOURCE_DIRECTORY_ENTRY)((char*)new_dir + sizeof(IMAGE_RESOURCE_DIRECTORY));
+				for (auto i = 0; i < num_entries; i++)
+				{
+					if (child[i].Name == i)
+					{
+						return &child[i];
+					}
+				}
+			}
+		}
+
+		return NULL;
+	}
+
+	template<typename FN>
+	static __forceinline void parse_rsc_entries(SIZE_T num_tabs, std::vector<uint16_t>& name_stack, PIMAGE_RESOURCE_DIRECTORY directory, PIMAGE_RESOURCE_DIRECTORY_ENTRY entry, FN iterator)
+	{
+		name_stack.push_back(entry->Name);
+		if (entry->OffsetToData & IMAGE_RESOURCE_DATA_IS_DIRECTORY)
+		{
+			auto new_dir = (PIMAGE_RESOURCE_DIRECTORY)((char*)directory + (entry->OffsetToDirectory));
+			auto num_entries = new_dir->NumberOfIdEntries + new_dir->NumberOfNamedEntries;
+
+			if (num_entries)
+			{
+				auto child = (PIMAGE_RESOURCE_DIRECTORY_ENTRY)((char*)new_dir + sizeof(IMAGE_RESOURCE_DIRECTORY));
+				for (auto i = 0; i < num_entries; i++)
+				{
+					parse_rsc_entries(num_tabs + 1, name_stack, directory, &child[i], iterator);
+				}
+			}
+		}
+		else
+		{
+			auto e = (PIMAGE_RESOURCE_DATA_ENTRY)((char*)directory + (entry->OffsetToData));
+
+			iterator(name_stack, e);
+		}
+		name_stack.erase(name_stack.end() - 1);
+	}
+
+	struct PrePackedResource
+	{
+		uint16_t id;
+		uint64_t off;
+		uint64_t size;
+	};
+
+	void fill_rng(void* p, size_t sz)
+	{
+		for (size_t i = 0; i < sz; i++)
+		{
+			((char*)p)[i] = (char)rand();
+		}
+	}
+
+	void erase_data_directory(PIMAGE_NT_HEADERS nt, PIMAGE_DATA_DIRECTORY data_directory, packed_app* app)
+	{
+		if (auto fva = packed_rva_to_fva(app, data_directory->VirtualAddress))
+		{
+			fill_rng((char*)app + fva, data_directory->Size);
+		}
+	}
+
+    void pack(char* input, bool cfg_command_line, bool cfg_lazy_load_code)
     {
         auto read = read_file(input);
         auto dos = (PIMAGE_DOS_HEADER)(read.data());
         auto nt = (PIMAGE_NT_HEADERS)(read.data() + dos->e_lfanew);
 
-		std::cout << "[info] calculating image size" << std::endl;
+		INFO("calculating image size" << std::endl);
 
 		auto reloc_count = 0;
 		auto sect_size = 0;
 		auto import_count = 0;
+		auto tls_callback_count = 0;
+		auto rsc_size = 0;
+		std::vector<PrePackedResource> resource_data_entries;
 		if (auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress)
 		{
 			auto base_reloc_dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
-			auto reloc = (PIMAGE_BASE_RELOCATION)(read.data() + rva_to_fva(nt, rva));
+			auto reloc = (PIMAGE_BASE_RELOCATION)((UINT64)read.data() + rva_to_fva(nt, rva));
+			auto reloc_ptr = 0;
 
 			for (auto cs = 0UL; cs < base_reloc_dir.Size;)
 			{
-				auto num_relocs = (reloc->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+				auto c_reloc_count = (reloc->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
 				auto reloc_data = (PUINT16)((PCHAR)reloc + sizeof(IMAGE_BASE_RELOCATION));
 
-				reloc_count += num_relocs;
-				reloc_data += num_relocs;
+				for (auto i = 0UL; i < c_reloc_count; ++i, ++reloc_data)
+				{
+					auto data = *reloc_data;
+					auto type = data >> 12;
+					auto offset = data & 0xFFF;
+
+					if (type == IMAGE_REL_BASED_DIR64)
+					{
+						reloc_count += 1;
+					}
+				}
 
 				cs += reloc->SizeOfBlock;
 				reloc = (PIMAGE_BASE_RELOCATION)reloc_data;
@@ -124,38 +242,101 @@ namespace bc
 				}
 			}
 		}
+		
+		if (auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress)
+		{
+			auto tls_dir = (PIMAGE_TLS_DIRECTORY)((UINT64)read.data() + rva_to_fva(nt, rva));
+			if (tls_dir->AddressOfCallBacks)
+			{
+				auto cur = (UINT64*)((UINT64)read.data() + rva_to_fva(nt, tls_dir->AddressOfCallBacks - nt->OptionalHeader.ImageBase));
+				while (*cur)
+				{
+					tls_callback_count += 1;
+					cur += 1;
+				}
+			}
+		}
 
+		if (auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE].VirtualAddress)
+		{
+			auto rsc_dir = (PIMAGE_RESOURCE_DIRECTORY)((UINT64)read.data() + rva_to_fva(nt, rva));
+			auto num_entries = rsc_dir->NumberOfIdEntries + rsc_dir->NumberOfNamedEntries;
+			if (num_entries)
+			{
+				auto dir = (PIMAGE_RESOURCE_DIRECTORY_ENTRY)((char*)rsc_dir + sizeof(IMAGE_RESOURCE_DIRECTORY));
+				for (auto i = 0; i < (rsc_dir->NumberOfIdEntries + rsc_dir->NumberOfNamedEntries); i++)
+				{
+					std::vector<uint16_t> name_stack;
+					parse_rsc_entries(1, name_stack, rsc_dir, &dir[i], [nt, &resource_data_entries, &rsc_size](auto& name_stack, auto entry)
+					{
+						if (name_stack.size() == 3)
+						{
+							rsc_size += entry->Size;
+
+							PrePackedResource rsc;
+							rsc.id = name_stack[1];
+							rsc.off = rva_to_fva(nt, entry->OffsetToData);
+							rsc.size = entry->Size;
+							resource_data_entries.push_back(rsc);
+						}
+					});
+				}
+			}
+		}
+
+		
         auto size_of_img =
             sizeof(packed_app) +
-            (nt->FileHeader.NumberOfSections * sizeof(packed_section)) +
+            (nt->FileHeader.NumberOfSections * sizeof(packed_section)) +\
+			(resource_data_entries.size() * sizeof(packed_resource)) +
 			(reloc_count * sizeof(packed_reloc)) +
 			(import_count * sizeof(packed_import)) +
+			(tls_callback_count * sizeof(packed_tls_callback)) +
+			rsc_size +
 			sect_size;
 
-		std::cout << "image_data" << std::endl;
-		std::cout << " section_count= " << nt->FileHeader.NumberOfSections << std::endl;
-		std::cout << " reloc_count= " << reloc_count << std::endl;
-		std::cout << " import_count= " << import_count << std::endl;
-		std::cout << " size_of_img= " << size_of_img << std::endl;
+		INFO(" -> image_data" << std::endl);
+		INFO("  -> section_count= " << nt->FileHeader.NumberOfSections);
+		INFO("  -> resource_count= " << resource_data_entries.size());
+		INFO("  -> reloc_count= " << reloc_count);
+		INFO("  -> import_count= " << import_count);
+		INFO("  -> tls_cb_count= " << tls_callback_count);
+		INFO("  -> size_of_img= " << size_of_img);
 
-		std::cout << "[info] building headers" << std::endl;
+		INFO(" -> building headers");
 
 		byte_allocator allocator(size_of_img);
 		auto app = allocator.append<packed_app>(sizeof(packed_app));
 
+		auto headers = allocator.append<char>(nt->OptionalHeader.SizeOfHeaders);
 		auto sections = allocator.append<packed_section>(nt->FileHeader.NumberOfSections * sizeof(packed_section));
+		auto resources = allocator.append<packed_resource>(resource_data_entries.size() * sizeof(packed_resource));
 		auto imports = allocator.append<packed_import>(import_count * sizeof(packed_import));
 		auto relocs = allocator.append<packed_reloc>(reloc_count * sizeof(packed_reloc));
+		auto tls_callbacks = allocator.append<packed_reloc>(tls_callback_count * sizeof(packed_tls_callback));
 
-		app->options |= (uint8_t)packed_app_option::console;
-		app->options |= (uint8_t)packed_app_option::lazy_load_code;
+		if (cfg_command_line)
+		{
+			app->options |= (uint8_t)packed_app_option::console;
+		}
+
+		if (cfg_lazy_load_code)
+		{
+			app->options |= (uint8_t)packed_app_option::lazy_load_code;
+		}
 
 		app->ep = nt->OptionalHeader.AddressOfEntryPoint;
 		app->size_of_img = nt->OptionalHeader.SizeOfImage;
 		app->preferred_base = nt->OptionalHeader.ImageBase;
 
+		app->off_to_headers.num_elements = nt->OptionalHeader.SizeOfHeaders;
+		app->off_to_headers.off = allocator.off(headers);
+
 		app->off_to_sections.num_elements = nt->FileHeader.NumberOfSections;
 		app->off_to_sections.off = allocator.off(sections);
+
+		app->off_to_resources.num_elements = resource_data_entries.size();
+		app->off_to_resources.off = allocator.off(resources);
 
 		app->off_to_relocs.num_elements = reloc_count;
 		app->off_to_relocs.off = allocator.off(relocs);
@@ -163,7 +344,10 @@ namespace bc
 		app->off_to_iat.num_elements = import_count;
 		app->off_to_iat.off = allocator.off(imports);
 
-		std::cout << "[info] building sections" << std::endl;
+		INFO(" -> building headers");
+		memcpy(headers, dos, nt->OptionalHeader.SizeOfHeaders);
+
+		INFO(" -> building sections");
 		sect = IMAGE_FIRST_SECTION(nt);
 		for (auto i = 0; i < nt->FileHeader.NumberOfSections; i++, sect++)
 		{
@@ -173,7 +357,7 @@ namespace bc
 			auto section = allocator.append<void>(sect->SizeOfRawData);
 			memcpy(section, read.data() + sect->PointerToRawData, sect->SizeOfRawData);
 
-			obfuscated_byte_array ba(section, sect->SizeOfRawData);
+			obfuscated_byte_array<0x1337, 7> ba(section, sect->SizeOfRawData);
 			ba.encrypt();
 
 			sections[i].off_to_data = allocator.off(section);
@@ -183,10 +367,24 @@ namespace bc
 			{
 				sections[i].characteristics |= (uint64_t)packed_section_characteristic::can_lazy_load;
 			}
-
 		}
 
-		std::cout << "[info] building relocations" << std::endl;
+		INFO(" -> building resources");
+		for (auto i = 0; i < resource_data_entries.size(); i++)
+		{
+			auto rsc_packed = &resources[i];
+
+			auto rsc_entry = resource_data_entries[i];
+			auto rsc_data = allocator.append<void>(rsc_entry.size);
+
+			memcpy(rsc_data, read.data() + rsc_entry.off, rsc_entry.size);
+
+			rsc_packed->id = rsc_entry.id;
+			rsc_packed->off_to_data = allocator.off(rsc_data);
+			rsc_packed->size_of_data = rsc_entry.size;
+		}
+
+		INFO(" -> building relocations");
 		if (auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress)
 		{
 			auto base_reloc_dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
@@ -204,8 +402,11 @@ namespace bc
 					auto type = data >> 12;
 					auto offset = data & 0xFFF;
 
-					relocs[reloc_ptr].rva = reloc->VirtualAddress + offset;
-					reloc_ptr += 1;
+					if (type == IMAGE_REL_BASED_DIR64)
+					{
+						relocs[reloc_ptr].rva = reloc->VirtualAddress + offset;
+						reloc_ptr += 1;
+					}
 				}
 
 				cs += reloc->SizeOfBlock;
@@ -213,7 +414,7 @@ namespace bc
 			}
 		}
 
-		std::cout << "[info] building imports" << std::endl;
+		INFO("building imports");
 		if (auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress)
 		{
 			auto import_ptr = 0;
@@ -230,7 +431,7 @@ namespace bc
 						imports[import_ptr].rva = fva_to_rva(nt, (uint64_t)&thunk->u1.Function - (uint64_t)read.data());
 						if (thunk->u1.Ordinal & IMAGE_ORDINAL_FLAG)
 						{
-
+							imports[import_ptr].ordinal = thunk->u1.Ordinal & 0xffff;
 							imports[import_ptr].type = packed_import_type::ordinal;
 						}
 						else
@@ -247,6 +448,29 @@ namespace bc
 			}
 		}
 
+		if (auto rva = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress)
+		{
+			auto tls_ptr = 0;
+			auto tls_dir = (PIMAGE_TLS_DIRECTORY)((UINT64)read.data() + rva_to_fva(nt, rva));
+			if (tls_dir->AddressOfCallBacks)
+			{
+				auto cur = (UINT64*)((UINT64)read.data() + rva_to_fva(nt, tls_dir->AddressOfCallBacks - nt->OptionalHeader.ImageBase));
+				while (*cur)
+				{
+					tls_callbacks[tls_ptr].rva = (*cur - nt->OptionalHeader.ImageBase);
+					tls_ptr += 1;
+					cur += 1;
+				}
+			}
+		}
+
+		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS], app);
+		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC], app);
+		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DEBUG], app);
+		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY], app);
+		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT], app);
+		erase_data_directory(nt, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG], app);
+
 		auto rsc = BeginUpdateResource(L"BinConPackerStub.exe", TRUE);
 		if (UpdateResource(rsc, RT_RCDATA, L"p", MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), (char*)allocator.img, allocator.cur_size))
 		{
@@ -257,18 +481,31 @@ namespace bc
 
 int main(int argc, char* argv[])
 {
-	bc::obfuscated_string<256> str("test");
 	
-	char real[256];
-	str.get(real);
+	bool cfg_command_line = false;
+	bool cfg_lazy_load_code = false;
+
+	srand(time(NULL));
 
     if (argc < 2)
     {
-        std::cout << "Correct usage: BinConPacker app.exe" << std::endl;
+		ERR("Correct usage: BinConPacker app.exe [-command_line] [-lazy_load_code]");
 		goto _ret;
     }
 
-    bc::pack(argv[1]);
+	for (auto i = 1; i < argc; i++)
+	{
+		if (!strcmp(argv[i], "-command_line"))
+		{
+			cfg_command_line = true;
+		}
+		else if (!strcmp(argv[i], "-lazy_load_code"))
+		{
+			cfg_lazy_load_code = true;
+		}
+	}
+
+	bc::pack(argv[1], cfg_command_line, cfg_lazy_load_code);
 
 _ret:
 	std::cin.get();

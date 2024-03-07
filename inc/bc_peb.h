@@ -44,12 +44,17 @@ namespace bc
 		//
 		// Resolves a function.
 		//
+		void* resolve_function(char* mod, const char* function);
 		void* resolve_function(const wchar_t*, const char* function);
-
 		//
 		// Determines if an address is located within a module.
 		//
 		bool is_within_module(void* addr);
+
+		//
+		// Retrieves the HMODULE that the provided address is within.
+		//
+		HMODULE get_hmodule(void* addr);
 
 	public:
 		static peb_walker query();

@@ -5,20 +5,19 @@
 #include <bc_thirdparty.h>
 #include <bc_log.h>
 
-#include <Windows.h>
 #include <cstdint>
 
 #include <xorstr.hpp>
 
+#define DR_MAGIC 0xffff000000000000
+
 namespace bc
 {
-	static obfuscated_prim64<uint32_t> checksum_DbgUiRemoteBreakin;
-	static obfuscated_prim64<void*> addr_DbgUiRemoteBreakin;
+	static obfuscated_prim64<uint32_t, 0x1337, __LINE__> checksum_DbgUiRemoteBreakin;
+	static obfuscated_prim64<void*, 0x1337, __LINE__> addr_DbgUiRemoteBreakin;
 	static bool hang_system_in_progress = false;
 	static HHOOK dummy_keyboard_hook;
 	static uint64_t expected_debug_regs[4];
-
-#define DR_MAGIC 0xffff000000000000
 
 	/// <summary>
 	/// Installs a hook on DbgUiRemoteBreakin so that the process
@@ -177,29 +176,50 @@ namespace bc
 		hang_system_in_progress = true;
 	}
 
-	static INLINE bool verify_ret_addr_ins(void* func, void* ret)
+	/// <summary>
+	/// Verifies that the provided return address contains a valid call within the provided module beforehand.
+	/// 
+	/// If the module is NULL, then it must just have a valid call.
+	/// </summary>
+	static INLINE bool verify_ret_addr_ins(void* func, void* ret, HMODULE mod)
 	{
-		uint8_t ret_bytes[5];
-		memcpy(ret_bytes, (char*)ret - 0x5, sizeof(ret_bytes));
+		HMODULE ret_mod = NULL;
+		if (mod)
+		{
+			ret_mod = peb_walker::tib().get_hmodule(ret);
+		}
+
+		uint8_t ret_bytes[15];
+		memcpy(ret_bytes, (char*)ret - 5, sizeof(ret_bytes));
 		if (ret_bytes[0] == 0xe8)
 		{
 			auto real_call_addr = (void*)((uint64_t)ret + *((int32_t*)(ret_bytes + 1)));
 			if (real_call_addr == func)
 			{
-				return true;
+				return (mod == NULL || mod == ret_mod);
 			}
 		}
-		// TODO FIXME make compatible with VMP by checking for push instruction
+		else if (ret_bytes[5] == 0x68 && ret_bytes[5 + 5] == 0xe8)
+		{
+			// vmp PUSH bytecode, CALL
+			return (mod == NULL || mod == ret_mod);
+		}
+
 		// TODO FIXME add support for call reg, etc.
 		return false;
 	}
 
-	bool verify_ret_addr(void* func, void* ret)
+	/// <summary>
+	/// Verifies that the return address is a valid call within the provided module.
+	/// 
+	/// If the module is NULL, then it must just be a valid call.
+	/// </summary>
+	bool verify_ret_addr(void* func, void* ret, HMODULE m)
 	{
 		auto bret = (uint64_t)ret;
 		auto walker = peb_walker::tib();
 		auto valid = false;
-		walker.iterate([func, ret, bret, &valid](RE_LDR_DATA_TABLE_ENTRY* mod, PLIST_ENTRY list_entry)
+		walker.iterate([func, ret, m, bret, &valid](RE_LDR_DATA_TABLE_ENTRY* mod, PLIST_ENTRY list_entry)
 		{
 			auto base = (uint64_t)mod->DllBase;
 			auto dos_header = (PIMAGE_DOS_HEADER)base;
@@ -207,7 +227,7 @@ namespace bc
 			auto end = (base + nt_headers->OptionalHeader.SizeOfImage);
 			if (bret >= base && bret < (base + end))
 			{
-				valid = verify_ret_addr_ins(func, ret);
+				valid = verify_ret_addr_ins(func, ret, m);
 			}
 		});
 		return valid;
@@ -218,4 +238,18 @@ namespace bc
 		return (RE_PEB*)__readgsqword(offsetof(GS, Peb));
 	}
 
+	bc_win_lock::bc_win_lock()
+	{
+		InitializeCriticalSection(&section);
+	}
+
+	void bc_win_lock::enter()
+	{
+		EnterCriticalSection(&section);
+	}
+
+	void bc_win_lock::exit()
+	{
+		LeaveCriticalSection(&section);
+	}
 }

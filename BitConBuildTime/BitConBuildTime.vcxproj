@@ -24,6 +24,7 @@
     <ProjectGuid>{d6303b99-3c59-4b39-89f2-823d1899ee5d}</ProjectGuid>
     <RootNamespace>BitConBuildTime</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>BinConBuildTime</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

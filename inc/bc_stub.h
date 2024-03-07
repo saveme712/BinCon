@@ -12,11 +12,6 @@
 namespace bc
 {
 #pragma pack(push, 1)
-	typedef void (*fn_verify_anti_debug)(fn_integrity_check_failed on_failure);
-	typedef void (*fn_re_encrypt_code)();
-	typedef void* (*fn_alloc_encrypted)(size_t amount);
-	typedef void* (*fn_free_encrypted)(uint64_t ptr);
-
 	enum class packed_app_option : uint8_t
 	{
 		chal_entry = (1 << 0),
@@ -24,6 +19,11 @@ namespace bc
 		anti_debug = (1 << 2),
 		lazy_load_code = (1 << 3)
 	};
+
+	typedef void (*fn_verify_anti_debug)(fn_integrity_check_failed on_failure);
+	typedef void (*fn_re_encrypt_code)();
+	typedef void* (*fn_alloc_encrypted)(size_t amount);
+	typedef void* (*fn_free_encrypted)(uint64_t ptr);
 
 	enum class packed_section_characteristic : uint64_t
 	{
@@ -37,17 +37,14 @@ namespace bc
 
 	struct chal_entry
 	{
-		obfuscated_prim64<uint64_t> run_tick;
-		obfuscated_prim64<fn_verify_anti_debug> verify_anti_debug;
-		obfuscated_prim64<fn_re_encrypt_code> re_encrypt_code;
-		obfuscated_prim64<fn_alloc_encrypted> alloc_enc;
-		obfuscated_prim64<fn_free_encrypted> free_enc;
+		obfuscated_prim64<uint64_t, 0x1337, __LINE__> run_tick;
+		obfuscated_prim64<fn_verify_anti_debug, 0x1337, __LINE__> verify_anti_debug;
+		obfuscated_prim64<fn_re_encrypt_code, 0x1337, __LINE__> re_encrypt_code;
+		obfuscated_prim64<fn_alloc_encrypted, 0x1337, __LINE__> alloc_enc;
+		obfuscated_prim64<fn_free_encrypted, 0x1337, __LINE__> free_enc;
 
-		union
-		{
-			obfuscated_prim64<uint32_t> crc;
-			bool crc_anchor;
-		};
+		bool crc_anchor;
+		obfuscated_prim64<uint32_t, 0x1337, __LINE__> crc;
 
 		chal_entry() { }
 	};

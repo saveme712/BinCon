@@ -214,9 +214,64 @@ namespace bc
 		char Padding001[0x28];
 		PRE_PEB Peb;
 	} GS, * PGS;
+
+	typedef struct _UNICODE_STRING
+	{
+		USHORT Length;
+		USHORT MaximumLength;
+		PWSTR  Buffer;
+	} UNICODE_STRING, * PUNICODE_STRING;
+
+	typedef enum _SECTION_INHERIT
+	{
+		ViewShare = 1,
+		ViewUnmap = 2
+	} SECTION_INHERIT, * PSECTION_INHERIT;
+
+	typedef struct _OBJECT_ATTRIBUTES
+	{
+		ULONG           Length;
+		HANDLE          RootDirectory;
+		PUNICODE_STRING ObjectName;
+		ULONG           Attributes;
+		PVOID           SecurityDescriptor;
+		PVOID           SecurityQualityOfService;
+	} OBJECT_ATTRIBUTES, * POBJECT_ATTRIBUTES;
+
 #pragma pack(pop)
 
-	typedef NTSTATUS(*FnNtQueryInformationProcess)(HANDLE ProcessHandle, int ProcessInformationClass, PVOID ProcessInformation, ULONG ProcessInformationLength, PULONG ReturnLength);
-
 	RE_PEB* get_peb();
+
+	typedef NTSTATUS(*FnNtQueryInformationProcess)(HANDLE ProcessHandle, int ProcessInformationClass, PVOID ProcessInformation, ULONG ProcessInformationLength, PULONG ReturnLength);
 }
+
+EXTERN_C NTSTATUS NTAPI NtCreateSection(
+	_Out_    PHANDLE            SectionHandle,
+	_In_     ACCESS_MASK        DesiredAccess,
+	_In_opt_ bc::POBJECT_ATTRIBUTES ObjectAttributes,
+	_In_opt_ PLARGE_INTEGER     MaximumSize,
+	_In_     ULONG              SectionPageProtection,
+	_In_     ULONG              AllocationAttributes,
+	_In_opt_ HANDLE             FileHandle);
+
+EXTERN_C NTSTATUS NTAPI NtMapViewOfSection(
+	_In_        HANDLE          SectionHandle,
+	_In_        HANDLE          ProcessHandle,
+	_Inout_     PVOID* BaseAddress,
+	_In_        ULONG_PTR       ZeroBits,
+	_In_        SIZE_T          CommitSize,
+	_Inout_opt_ PLARGE_INTEGER  SectionOffset,
+	_Inout_     PSIZE_T         ViewSize,
+	_In_        bc::SECTION_INHERIT InheritDisposition,
+	_In_        ULONG           AllocationType,
+	_In_        ULONG           Win32Protect);
+
+EXTERN_C NTSTATUS NTAPI NtUnmapViewOfSection(
+	_In_        HANDLE  ProcessHandle,
+	_In_opt_    PVOID   BaseAddress);
+
+EXTERN_C NTSTATUS NTAPI NtClose(
+	_In_ HANDLE Handle);
+
+EXTERN_C PIMAGE_NT_HEADERS NTAPI RtlImageNtHeader(
+	_In_ PVOID BaseAddress);

@@ -15,9 +15,9 @@
 
 struct secret
 {
-	bc::obfuscated_prim64<uint64_t> health;
-	bc::obfuscated_prim64<uint64_t> start_time;
-	bc::obfuscated_prim64<uint64_t> tick;
+	bc::obfuscated_prim64<uint64_t, 0x1337, __LINE__> health;
+	bc::obfuscated_prim64<uint64_t, 0x1337, __LINE__> start_time;
+	bc::obfuscated_prim64<uint64_t, 0x1337, __LINE__> tick;
 	uint32_t arr[4];
 };
 

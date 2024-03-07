@@ -18,8 +18,38 @@
     <ClCompile Include="packer_stub.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="mem_enc.cpp">
+    <ClCompile Include="x86_emulator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="veh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="load.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="crt.inc">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="native.asm">
+      <Filter>Source Files</Filter>
+    </MASM>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stub.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="load.inc">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="stub.inc">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="veh.inc">
+      <Filter>Header Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

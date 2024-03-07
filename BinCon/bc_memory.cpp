@@ -13,7 +13,6 @@
 
 namespace bc
 {
-
 	memory_allocator::memory_allocator(size_t num_blocks)
 	{
 		blocks = (memory_block*)malloc(sizeof(memory_block) * num_blocks);
@@ -26,7 +25,6 @@ namespace bc
 
 		total_block_count = num_blocks;
 	}
-
 
 	memory_allocator::memory_allocator(memory_allocator& other)
 	{
@@ -78,7 +76,7 @@ namespace bc
 			block_allocation_map[block_index + i] = true;
 		}
 
-		allocation->id = allocation_id++;
+		allocation->id.set(allocation_id++);
 		allocation->block = block;
 		allocation->num_blocks = BYTES_TO_BLOCKS(num_bytes);
 		allocations.push_back(*allocation);

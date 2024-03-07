@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bc_gen.cpp" />
     <ClCompile Include="bc_integrity.cpp" />
     <ClCompile Include="bc_memory.cpp" />
     <ClCompile Include="bc_pe.cpp" />
@@ -180,7 +181,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
-      <Command>"$(TargetDir)BitConBuildTime"
+      <Command>"$(TargetDir)BinConBuildTime"
 xcopy "$(ProjectDir)bc_gen.h" "$(SolutionDir)inc" /Y
 xcopy "$(ProjectDir)bc_gen_struct.h" "$(SolutionDir)inc" /Y
 </Command>

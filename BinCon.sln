@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.31515.178
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BinCon", "BinCon\BinCon.vcxproj", "{F76672D3-353D-4EF3-8933-1575D4F37E0A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D} = {D6303B99-3C59-4B39-89F2-823D1899EE5D}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BitConTests", "BitConTests\BitConTests.vcxproj", "{D264D73C-4923-40F8-A356-289E4D1FBE6F}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -11,6 +14,26 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BitConTests", "BitConTests\
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BinConExamples", "BinConExamples\BinConExamples.vcxproj", "{5DDD1B70-C2C3-45FA-8643-DA31B8C9CBF1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B303DE66-A224-432A-A33D-4184C1F38324} = {B303DE66-A224-432A-A33D-4184C1F38324}
+		{B3B138D3-1441-4D07-979A-663FD29FFC81} = {B3B138D3-1441-4D07-979A-663FD29FFC81}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BitConBuildTime", "BitConBuildTime\BitConBuildTime.vcxproj", "{D6303B99-3C59-4B39-89F2-823D1899EE5D}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BinConPacker", "BinConPacker\BinConPacker.vcxproj", "{B303DE66-A224-432A-A33D-4184C1F38324}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B3B138D3-1441-4D07-979A-663FD29FFC81} = {B3B138D3-1441-4D07-979A-663FD29FFC81}
+		{F76672D3-353D-4EF3-8933-1575D4F37E0A} = {F76672D3-353D-4EF3-8933-1575D4F37E0A}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BinConPackerStub", "BinConPackerStub\BinConPackerStub.vcxproj", "{B3B138D3-1441-4D07-979A-663FD29FFC81}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D} = {D6303B99-3C59-4B39-89F2-823D1899EE5D}
+		{F76672D3-353D-4EF3-8933-1575D4F37E0A} = {F76672D3-353D-4EF3-8933-1575D4F37E0A}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BinConVm", "BinConVm\BinConVm.vcxproj", "{61E38AEF-8D23-4017-872C-9C4EC7773A42}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +67,38 @@ Global
 		{5DDD1B70-C2C3-45FA-8643-DA31B8C9CBF1}.Release|x64.Build.0 = Release|x64
 		{5DDD1B70-C2C3-45FA-8643-DA31B8C9CBF1}.Release|x86.ActiveCfg = Release|Win32
 		{5DDD1B70-C2C3-45FA-8643-DA31B8C9CBF1}.Release|x86.Build.0 = Release|Win32
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D}.Debug|x64.ActiveCfg = Debug|x64
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D}.Debug|x64.Build.0 = Debug|x64
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D}.Debug|x86.ActiveCfg = Debug|Win32
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D}.Debug|x86.Build.0 = Debug|Win32
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D}.Release|x64.ActiveCfg = Release|x64
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D}.Release|x64.Build.0 = Release|x64
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D}.Release|x86.ActiveCfg = Release|Win32
+		{D6303B99-3C59-4B39-89F2-823D1899EE5D}.Release|x86.Build.0 = Release|Win32
+		{B303DE66-A224-432A-A33D-4184C1F38324}.Debug|x64.ActiveCfg = Debug|x64
+		{B303DE66-A224-432A-A33D-4184C1F38324}.Debug|x64.Build.0 = Debug|x64
+		{B303DE66-A224-432A-A33D-4184C1F38324}.Debug|x86.ActiveCfg = Debug|Win32
+		{B303DE66-A224-432A-A33D-4184C1F38324}.Debug|x86.Build.0 = Debug|Win32
+		{B303DE66-A224-432A-A33D-4184C1F38324}.Release|x64.ActiveCfg = Release|x64
+		{B303DE66-A224-432A-A33D-4184C1F38324}.Release|x64.Build.0 = Release|x64
+		{B303DE66-A224-432A-A33D-4184C1F38324}.Release|x86.ActiveCfg = Release|Win32
+		{B303DE66-A224-432A-A33D-4184C1F38324}.Release|x86.Build.0 = Release|Win32
+		{B3B138D3-1441-4D07-979A-663FD29FFC81}.Debug|x64.ActiveCfg = Debug|x64
+		{B3B138D3-1441-4D07-979A-663FD29FFC81}.Debug|x64.Build.0 = Debug|x64
+		{B3B138D3-1441-4D07-979A-663FD29FFC81}.Debug|x86.ActiveCfg = Debug|Win32
+		{B3B138D3-1441-4D07-979A-663FD29FFC81}.Debug|x86.Build.0 = Debug|Win32
+		{B3B138D3-1441-4D07-979A-663FD29FFC81}.Release|x64.ActiveCfg = Release|x64
+		{B3B138D3-1441-4D07-979A-663FD29FFC81}.Release|x64.Build.0 = Release|x64
+		{B3B138D3-1441-4D07-979A-663FD29FFC81}.Release|x86.ActiveCfg = Release|Win32
+		{B3B138D3-1441-4D07-979A-663FD29FFC81}.Release|x86.Build.0 = Release|Win32
+		{61E38AEF-8D23-4017-872C-9C4EC7773A42}.Debug|x64.ActiveCfg = Debug|x64
+		{61E38AEF-8D23-4017-872C-9C4EC7773A42}.Debug|x64.Build.0 = Debug|x64
+		{61E38AEF-8D23-4017-872C-9C4EC7773A42}.Debug|x86.ActiveCfg = Debug|Win32
+		{61E38AEF-8D23-4017-872C-9C4EC7773A42}.Debug|x86.Build.0 = Debug|Win32
+		{61E38AEF-8D23-4017-872C-9C4EC7773A42}.Release|x64.ActiveCfg = Release|x64
+		{61E38AEF-8D23-4017-872C-9C4EC7773A42}.Release|x64.Build.0 = Release|x64
+		{61E38AEF-8D23-4017-872C-9C4EC7773A42}.Release|x86.ActiveCfg = Release|Win32
+		{61E38AEF-8D23-4017-872C-9C4EC7773A42}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

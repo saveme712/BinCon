@@ -6,6 +6,8 @@
 
 #include <random>
 
+#define PERMUTATIONS 10
+
 enum class obfuscation_type : int8_t
 {
     bswap = 0,
@@ -72,15 +74,15 @@ uint64_t build_bit_mask(int num_bits, int off)
 
 void generate_macro(std::ostringstream& o, std::string macro)
 {
-    o << "#define " << macro << "(O, X) ";
+    o << "#define " << macro << "(O, X, F, FL) ";
 }
 
 void generate_header(std::ostringstream& o)
 {
-    o << "O = X; \\" << std::endl;
-    o << "{  \\" << std::endl;
-    o << "\tuint64_t __a; \\" << std::endl;
-    o << "\tuint64_t __b; \\" << std::endl;
+    o << "\tO = X; \\" << std::endl;
+    o << "\t{  \\" << std::endl;
+    o << "\t\tuint64_t __a; \\" << std::endl;
+    o << "\t\tuint64_t __b; \\" << std::endl;
 }
 
 void generate_footer(std::ostringstream& o)
@@ -90,23 +92,23 @@ void generate_footer(std::ostringstream& o)
 
 void generate_bit_swap(std::ostringstream& o, int num_bits, int a, int b)
 {
-    o << "\t__a = (O & " << build_bit_mask(num_bits, a) << ") >> " << a << "ull; \\" << std::endl;
-    o << "\t__b = (O & " << build_bit_mask(num_bits, b) << ") >> " << b << "ull; \\" << std::endl;
-    o << "\tO &= ~" << build_bit_mask(num_bits, a) << "; \\" << std::endl;
-    o << "\tO &= ~" << build_bit_mask(num_bits, b) << "; \\" << std::endl;
-    o << "\tO |= __a << " << b << "ull; \\" << std::endl;
-    o << "\tO |= __b << " << a << "ull; \\" << std::endl;
+    o << "\t\t__a = (O & " << build_bit_mask(num_bits, a) << ") >> " << a << "ull; \\" << std::endl;
+    o << "\t\t__b = (O & " << build_bit_mask(num_bits, b) << ") >> " << b << "ull; \\" << std::endl;
+    o << "\t\tO &= ~" << build_bit_mask(num_bits, a) << "; \\" << std::endl;
+    o << "\t\tO &= ~" << build_bit_mask(num_bits, b) << "; \\" << std::endl;
+    o << "\t\tO |= __a << " << b << "ull; \\" << std::endl;
+    o << "\t\tO |= __b << " << a << "ull; \\" << std::endl;
 }
 
 void generate_inverse(std::ostringstream& o, uint64_t v1, uint64_t v2)
 {
-    o << "\t*((uint16_t*)&O) *= " << v1 << "; \\" << std::endl;
-    o << "\t*((uint16_t*)&O + 1) *= " << v2 << "; \\" << std::endl;
+    o << "\t\t*((uint16_t*)&O) *= " << v1 << "; \\" << std::endl;
+    o << "\t\t*((uint16_t*)&O + 1) *= " << v2 << "; \\" << std::endl;
 }
 
 void generate_xor(std::ostringstream& o, uint64_t v)
 {
-    o << "\tO ^= " << v << "; \\" << std::endl;
+    o << "\t\tO ^= " << v << "; \\" << std::endl;
 }
 
 void add_random(std::vector<obfuscation_pass>& passes)
@@ -155,21 +157,52 @@ std::string generate_encrypt(std::vector<obfuscation_pass> passes, std::string n
     std::ostringstream ss;
     generate_macro(ss, name);
     generate_header(ss);
-    for (auto pass : passes)
+
+    for (auto i = 0; i < PERMUTATIONS; i++)
     {
-        switch (pass.type)
+        if (i > 0)
         {
-        case obfuscation_type::bswap:
-            generate_bit_swap(ss, pass.args[0], pass.args[1], pass.args[2]);
-            break;
-        case obfuscation_type::xxor:
-            generate_xor(ss, pass.args[0]);
-            break;
-        case obfuscation_type::m_inverse:
-            generate_inverse(ss, pass.args[2], pass.args[0]);
-            break;
+            ss << "\t}" << " \\" << std::endl;
+        }
+
+        ss << "\t";
+
+        if (i > 0)
+        {
+            ss << "else ";
+        }
+
+        if (i != (PERMUTATIONS - 1))
+        {
+            ss << "if ((FL % " << (PERMUTATIONS - i - 1) << ") == 0)";
+        }
+
+        ss << " \\" << std::endl;
+        ss << "\t{" << " \\" << std::endl;
+
+        for (auto pass : passes)
+        {
+            switch (pass.type)
+            {
+            case obfuscation_type::bswap:
+                generate_bit_swap(ss, pass.args[0], pass.args[1], pass.args[2]);
+                break;
+            case obfuscation_type::xxor:
+                generate_xor(ss, pass.args[0]);
+                break;
+            case obfuscation_type::m_inverse:
+                generate_inverse(ss, pass.args[2], pass.args[0]);
+                break;
+            }
+        }
+
+        if (i == (PERMUTATIONS - 1))
+        {
+            ss << "\t}" << " \\" << std::endl;
         }
     }
+
+    
     generate_footer(ss);
     return ss.str();
 }
@@ -181,21 +214,51 @@ std::string generate_decrypt(std::vector<obfuscation_pass> passes, std::string n
 
     generate_macro(ss, name);
     generate_header(ss);
-    for (auto pass : passes)
+
+    for (auto i = 0; i < PERMUTATIONS; i++)
     {
-        switch (pass.type)
+        if (i > 0)
         {
-        case obfuscation_type::bswap:
-            generate_bit_swap(ss, pass.args[0], pass.args[1], pass.args[2]);
-            break;
-        case obfuscation_type::xxor:
-            generate_xor(ss, pass.args[0]);
-            break;
-        case obfuscation_type::m_inverse:
-            generate_inverse(ss, mul_inv(pass.args[2], pass.args[1]), mul_inv(pass.args[0], pass.args[1]));
-            break;
+            ss << "\t}" << " \\" << std::endl;
+        }
+
+        ss << "\t";
+
+        if (i > 0)
+        {
+            ss << "else ";
+        }
+
+        if (i != (PERMUTATIONS - 1))
+        {
+            ss << "if ((FL % " << (PERMUTATIONS - i - 1) << ") == 0)";
+        }
+
+        ss << " \\" << std::endl;
+        ss << "\t{" << " \\" << std::endl;
+
+        for (auto pass : passes)
+        {
+            switch (pass.type)
+            {
+            case obfuscation_type::bswap:
+                generate_bit_swap(ss, pass.args[0], pass.args[1], pass.args[2]);
+                break;
+            case obfuscation_type::xxor:
+                generate_xor(ss, pass.args[0]);
+                break;
+            case obfuscation_type::m_inverse:
+                generate_inverse(ss, mul_inv(pass.args[2], pass.args[1]), mul_inv(pass.args[0], pass.args[1]));
+                break;
+            }
+        }
+
+        if (i == (PERMUTATIONS - 1))
+        {
+            ss << "\t}" << " \\" << std::endl;
         }
     }
+
     generate_footer(ss);
     return ss.str();
 }
@@ -251,6 +314,9 @@ int main()
 
     std::ofstream gen_of("bc_gen.h", std::ios::out);
     gen_of << "#pragma once" << std::endl;
+    gen_of << "#include <cstdint>" << std::endl;
+    gen_of << "extern uint32_t dyn_key_32;" << std::endl;
+    gen_of << "extern uint64_t dyn_key_64;" << std::endl;
     gen_of << generate_encrypt(passes, "ENCRYPT") << std::endl;
     gen_of << generate_decrypt(passes, "DECRYPT") << std::endl;
     gen_of << generate_encrypt(passes, "ENCRYPTM") << std::endl;
@@ -267,37 +333,49 @@ int main()
     gens_of << generate_enum("packed_import_type", { { "name" }, { "ordinal"} });
 
     gens_of << generate_struct("packed_import", {
-        {"obfuscated_prim64<packed_import_type>", "type"},
-        {"obfuscated_string<256>", "mod"},
-        {"obfuscated_string<256>", "name"},
-        {"obfuscated_prim64<uint32_t>", "ordinal"},
-        {"obfuscated_prim64<uint64_t>", "rva"}
+        {"obfuscated_prim64<packed_import_type, 0x1337, __LINE__>", "type"},
+        {"obfuscated_string<256, 0x1337, __LINE__>", "mod"},
+        {"obfuscated_string<256, 0x1337, __LINE__>", "name"},
+        {"obfuscated_prim64<uint32_t, 0x1337, __LINE__>", "ordinal"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "rva"}
         });
 
     gens_of << generate_struct("packed_section", {
-        {"obfuscated_prim64<uint64_t>", "rva"},
-        {"obfuscated_prim64<uint64_t>", "size_of_data"},
-        {"obfuscated_prim64<uint64_t>", "off_to_data"},
-        {"obfuscated_prim64<uint64_t>", "characteristics"}
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "rva"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "size_of_data"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "off_to_data"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "characteristics"}
+        });
+
+    gens_of << generate_struct("packed_resource", {
+        {"obfuscated_prim64<uint16_t, 0x1337, __LINE__>", "id"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "off_to_data"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "size_of_data"},
         });
 
     gens_of << generate_struct("packed_reloc", {
-        {"obfuscated_prim64<uint64_t>", "rva"}
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "rva"}
+        });
+
+    gens_of << generate_struct("packed_tls_callback", {
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "callback"}
         });
 
     gens_of << generate_struct("counted_element", {
-        {"obfuscated_prim64<uint64_t>", "num_elements"},
-        {"obfuscated_prim64<uint64_t>", "off"}
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "num_elements"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "off"}
         });
 
     gens_of << generate_struct("packed_app", {
-        {"obfuscated_prim64<uint8_t>", "options"},
-        {"obfuscated_prim64<uint64_t>", "size_of_img"},
-        {"obfuscated_prim64<uint64_t>", "preferred_base"},
-        {"obfuscated_prim64<uint64_t>", "ep"},
+        {"obfuscated_prim64<uint8_t, 0x1337, __LINE__>", "options"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "size_of_img"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "preferred_base"},
+        {"obfuscated_prim64<uint64_t, 0x1337, __LINE__>", "ep"},
         {"counted_element", "off_to_relocs"},
         {"counted_element", "off_to_iat"},
-        {"counted_element", "off_to_sections"}
+        {"counted_element", "off_to_sections"},
+        {"counted_element", "off_to_resources"},
+        {"counted_element", "off_to_headers"}
         });
 
     gens_of << "}" << std::endl;

@@ -1,10 +1,12 @@
 #pragma once
 #include <cstdint>
 #include <intrin.h>
+#include <string>
 #include "bc_gen.h"
 
 namespace bc
 {
+	template <unsigned long long F, unsigned long long FL>
 	class obfuscated_byte_array
 	{
 	private:
@@ -27,7 +29,7 @@ namespace bc
 			for (auto i = 0; i < data_len / sizeof(uint64_t); i++)
 			{
 				t1 = *((uint64_t*)(data + (i * sizeof(uint64_t))));
-				ENCRYPT(t2, t1);
+				ENCRYPT(t2, t1, F, FL);
 
 				*((uint64_t*)(data + (i * sizeof(uint64_t)))) = t2;
 			}
@@ -41,14 +43,14 @@ namespace bc
 			for (auto i = 0; i < data_len / sizeof(uint64_t); i++)
 			{
 				t1 = *((uint64_t*)(data + (i * sizeof(uint64_t))));
-				DECRYPT(t2, t1);
+				DECRYPT(t2, t1, F, FL);
 
 				*((uint64_t*)(data + (i * sizeof(uint64_t)))) = t2;
 			}
 		}
 	};
 
-	template <uint64_t S>
+	template <uint64_t S, unsigned long long F, unsigned long long FL>
 	class obfuscated_string
 	{
 	private:
@@ -67,7 +69,7 @@ namespace bc
 			for (auto i = 0; i < S / sizeof(uint64_t); i++)
 			{
 				t1 = *((uint64_t*)(whole + (i * sizeof(uint64_t))));
-				ENCRYPT(t2, t1);
+				ENCRYPT(t2, t1, F, FL);
 
 				memcpy(obfuscated + (i * sizeof(uint64_t)), &t2, sizeof(t2));
 			}
@@ -85,7 +87,7 @@ namespace bc
 			for (auto i = 0; i < S / sizeof(uint64_t) && !has_null; i++)
 			{
 				t1 = *((uint64_t*)(obfuscated + (i * sizeof(uint64_t))));
-				DECRYPT(t2, t1);
+				DECRYPT(t2, t1, F, FL);
 
 				memcpy(whole + (i * sizeof(uint64_t)), &t2, sizeof(t2));
 			}
@@ -100,7 +102,18 @@ namespace bc
 		}
 	};
 
-	template <typename T>
+	struct obfuscated_str_arg
+	{
+		const char* arg;
+
+	public:
+		__forceinline obfuscated_str_arg(const char* arg)
+		{
+			this->arg = arg;
+		}
+	};
+
+	template <typename T, unsigned long long F, unsigned long long FL>
 	class obfuscated_prim64
 	{
 	private:
@@ -109,15 +122,19 @@ namespace bc
 	public:
 		__forceinline void set(T val)
 		{
+			uint64_t tk = *((uint64_t*)__TIME__);
+
 			uint64_t obf;
-			ENCRYPT(obf, (uint64_t)val);
+			ENCRYPT(obf, (uint64_t)val, F ^ tk, FL);
 			this->obfuscated = obf;
 		}
 
 		__forceinline T get()
 		{
+			uint64_t tk = *((uint64_t*)__TIME__);
+
 			uint64_t deob;
-			DECRYPT(deob, obfuscated);
+			DECRYPT(deob, obfuscated, F ^ tk, FL);
 			return (T)deob;
 		}
 
@@ -133,35 +150,35 @@ namespace bc
 
 		__forceinline operator T() { return get(); }
 
-		__forceinline obfuscated_prim64<T> operator/(int val)
+		__forceinline obfuscated_prim64<T, F, FL> operator/(int val)
 		{
 			auto dec = get();
 			dec /= val;
-			return obfuscated_prim64<T>(dec);
+			return obfuscated_prim64<T, F, FL>(dec);
 		}
 
-		__forceinline obfuscated_prim64<T> operator*(int val)
+		__forceinline obfuscated_prim64<T, F, FL> operator*(int val)
 		{
 			auto dec = get();
 			dec *= val;
-			return obfuscated_prim64<T>(dec);
+			return obfuscated_prim64<T, F, FL>(dec);
 		}
 
-		__forceinline obfuscated_prim64<T> operator&(int val)
+		__forceinline obfuscated_prim64<T, F, FL> operator&(int val)
 		{
 			auto dec = get();
 			dec &= val;
-			return obfuscated_prim64<T>(dec);
+			return obfuscated_prim64<T, F, FL>(dec);
 		}
 
-		__forceinline obfuscated_prim64<T> operator++(int val)
+		__forceinline obfuscated_prim64<T, F, FL> operator++(int val)
 		{
 			auto dec = get();
 			dec += val;
-			return obfuscated_prim64<T>(dec);
+			return obfuscated_prim64<T, F, FL>(dec);
 		}
 
-		__forceinline obfuscated_prim64<T>& operator/=(int val)
+		__forceinline obfuscated_prim64<T, F, FL>& operator/=(int val)
 		{
 			auto dec = get();
 			dec /= val;
@@ -169,7 +186,7 @@ namespace bc
 			return *this;
 		}
 
-		__forceinline obfuscated_prim64<T>& operator*=(int val)
+		__forceinline obfuscated_prim64<T, F, FL>& operator*=(int val)
 		{
 			auto dec = get();
 			dec *= val;
@@ -177,7 +194,7 @@ namespace bc
 			return *this;
 		}
 
-		__forceinline obfuscated_prim64<T>& operator+=(int val)
+		__forceinline obfuscated_prim64<T, F, FL>& operator+=(int val)
 		{
 			auto dec = get();
 			dec += val;
@@ -185,7 +202,7 @@ namespace bc
 			return *this;
 		}
 
-		__forceinline obfuscated_prim64<T> operator|=(int val)
+		__forceinline obfuscated_prim64<T, F, FL> operator|=(int val)
 		{
 			auto dec = get();
 			dec |= val;
@@ -193,9 +210,9 @@ namespace bc
 			return *this;
 		}
 
-		__forceinline obfuscated_prim64<T> operator++()
+		__forceinline obfuscated_prim64<T, F, FL> operator++()
 		{
-			return obfuscated_prim64<T>(get()) + 1;
+			return obfuscated_prim64<T, F, FL>(get()) + 1;
 		}
 	};
 }

@@ -23,9 +23,9 @@ namespace bc
 	/// </summary>
 	struct memory_allocation
 	{
-		obfuscated_prim64<size_t> id;
-		obfuscated_prim64<size_t> num_blocks;
-		obfuscated_prim64<memory_block*> block = nullptr;
+		obfuscated_prim64<size_t, *__TIME__, __LINE__> id;
+		obfuscated_prim64<size_t, *__TIME__, __LINE__> num_blocks;
+		obfuscated_prim64<memory_block*, *__TIME__, __LINE__> block = nullptr;
 
 		template <typename T>
 		__forceinline T* cast()
@@ -35,16 +35,17 @@ namespace bc
 	};
 
 	/// <summary>
-	/// A naive memory allocator, without any special optimizations.
+	/// A naive memory allocator, without any special optimizations. This memory allocator
+	/// is not thread safe. Allocation operations should be kept on one thread per allocator.
 	/// </summary>
 	class memory_allocator
 	{
 	private:
 		std::vector<memory_allocation> allocations;
-		obfuscated_prim64<memory_block*> blocks;
-		obfuscated_prim64<bool*> block_allocation_map;
-		obfuscated_prim64<size_t> total_block_count;
-		obfuscated_prim64<size_t> allocation_id = 1;
+		obfuscated_prim64<memory_block*, 0x1337, __LINE__> blocks;
+		obfuscated_prim64<bool*, 0x1337, __LINE__> block_allocation_map;
+		obfuscated_prim64<size_t, 0x1337, __LINE__> total_block_count;
+		obfuscated_prim64<size_t, 0x1337, __LINE__> allocation_id = 1;
 
 	public:
 		memory_allocator(size_t num_blocks);
