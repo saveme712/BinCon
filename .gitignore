@@ -18,3 +18,4 @@ inc/xorstr.hpp
 *.ipdb
 *.txt
 packed.dat
+.CopyComplete
