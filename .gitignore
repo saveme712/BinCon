@@ -17,3 +17,4 @@ inc/xorstr.hpp
 *.iobj
 *.ipdb
 *.txt
+packed.dat
